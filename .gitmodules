@@ -1,0 +1,4 @@
+[submodule "c2ffi"]
+	path = c2ffi
+	url = https://github.com/rpav/c2ffi.git
+	branch = llvm-11.0.0
