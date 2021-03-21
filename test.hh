@@ -17,3 +17,8 @@ struct Bar : public Foo {
 void something(Bar *x);
 
 Bar *alternately(Foo *z, int yams);
+
+template<typename T>
+class C { T t; };
+
+typedef class C<int> C_int;
