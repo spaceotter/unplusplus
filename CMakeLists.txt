@@ -17,7 +17,7 @@ if (NOT ECL_INCLUDE_DIR)
 endif()
 
 set(SPECGEN_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/specgen")
-function(add_specgen header_file lang dir)
+function(add_specgen src_target header_file lang dir)
     file(REAL_PATH "${header_file}" header_file BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
     get_filename_component(base "${header_file}" NAME_WLE)
     set("${base}_SPEC_FILE" "${dir}/${base}.spec" PARENT_SCOPE)
@@ -28,7 +28,7 @@ function(add_specgen header_file lang dir)
         "${SPECGEN_SCRIPT}"
         "${header_file}"
         "${lang}"
-        DEPENDS "${header_file}" c2ffi
+        DEPENDS "${header_file}" c2ffi "${src_target}" "${SPECGEN_SCRIPT}"
         WORKING_DIRECTORY "${dir}")
     add_custom_target("${base}-spec" DEPENDS "${dir}/${base}.spec")
 endfunction()

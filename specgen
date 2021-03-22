@@ -3,7 +3,7 @@
 # file for a C++ header.
 # Usage: specgen <header> <language> <args for c2ffi>
 set -e
-set -x
+set +x
 args=( "$@" )
 extra_args="-x $2 ${args[@]:2}"
 orig=$1
@@ -18,7 +18,7 @@ if [ "$2" == "c++" ]; then
     # find out which automatic macro definitions cause problems
     c2ffi "$base.all.hpp" -D null $extra_args 2> "$base.err" || echo "Filtering some bad macro constants"
     # erase the lines causing errors from the generated code
-    grep -F "$base.mac.hpp" test.err | grep 'error:' | sed 's/^[^:]*:\([0-9]*\):.*/\1 d/' > "$base.sed"
+    grep -F "$base.mac.hpp" "$base.err" | grep 'error:' | sed 's/^[^:]*:\([0-9]*\):.*/\1 d/' > "$base.sed"
     cp "$base.mac.hpp" "$base.mac.hpp.orig"
     sed -i -f "$base.sed" "$base.mac.hpp"
     c2ffi "$base.all.hpp" -D json $extra_args -o "$base.spec"
