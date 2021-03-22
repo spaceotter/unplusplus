@@ -1,19 +1,9 @@
 #include "test.hh"
 
-int Foo::pashoo(float z) {
-  b += z/2;
-  return b;
-}
+using namespace c;
 
-void Bar::store() {
-  d = *c;
-}
+Point::Point(int x, int y) : x(x), y(y) {}
 
-double Bar::meep(void *x) {
-  return *(double *)x * 2;
-}
-
-template<>
-int C_int::meep(int x) {
-  return x+2;
+int Point::magSQ() {
+  return x*x + y*y;
 }
