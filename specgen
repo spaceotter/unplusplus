@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# This file is a bodge to call c2ffi multiple times to hopefully assemble a usable interface spec
+# file for a C++ header.
+set -e
+set +x
+args=( "$@" )
+extra_args="-x c++ ${args[@]:1}"
+orig=$1
+base=$(basename "$orig")
+base=$(echo "$base" | rev | cut -f 2- -d '.' | rev)
+c2ffi "$orig" -D null -M "$base.mac.hpp" -T "$base.tem.hpp" $extra_args
+# the ordering from c2ffi is not determinstic
+sort "$base.mac.hpp" -o "$base.mac.hpp"
+echo "#include \"$base.tem.hpp\"" > "$base.h.hh"
+echo "#include \"$base.mac.hpp\"" >> "$base.h.hh"
+# find out which automatic macro definitions cause problems
+c2ffi "$base.h.hh" -D null $extra_args 2> "$base.err" || echo "Filtering some bad macro constants"
+# erase the lines causing errors from the generated code
+grep -F "$base.mac.hpp" test.err | grep 'error:' | sed 's/^[^:]*:\([0-9]*\):.*/\1 d/' > "$base.sed"
+cp "$base.mac.hpp" "$base.m.hh.orig"
+sed -i -f "$base.sed" "$base.mac.hpp"
+c2ffi "$base.h.hh" -D json $extra_args -o "$base.spec"

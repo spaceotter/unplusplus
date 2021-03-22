@@ -21,6 +21,7 @@ void something(Bar *x);
 Bar *alternately(Foo *z, int yams);
 
 template<typename T>
-class C { T t; };
+class C { T t;
+  T meep(T x) {return x+1;} };
 
 typedef class C<int> C_int;
