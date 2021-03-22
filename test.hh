@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#define TEST_STR "{has braces}"
+
 struct Foo {
   int8_t a;
   uint16_t b;
