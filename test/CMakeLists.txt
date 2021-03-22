@@ -9,4 +9,4 @@ target_link_libraries(test-cif test)
 add_specgen(test-cif.h c "${CMAKE_CURRENT_BINARY_DIR}")
 add_dependencies(test-cif test-cif-spec)
 
-add_custom_target(test-cifgen ALL COMMAND "$<TARGET_FILE:cifgen>" "${libtest_SPEC_FILE}" DEPENDS libtest-spec)
+add_custom_target(test-unplusplus ALL COMMAND "$<TARGET_FILE:unplusplus>" "${libtest_SPEC_FILE}" DEPENDS libtest-spec)

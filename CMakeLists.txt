@@ -3,7 +3,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/c2ffi/CMake")
 set(BUILD_CONFIG ${CMAKE_BUILD_TYPE})
 include(setup)
 
-project(cifgen)
+project(unplusplus)
 
 add_subdirectory(c2ffi)
 
@@ -33,8 +33,8 @@ function(add_specgen header_file lang dir)
     add_custom_target("${base}-spec" DEPENDS "${dir}/${base}.spec")
 endfunction()
 
-add_executable(cifgen src/main.cc)
-target_link_libraries(cifgen PkgConfig::jsoncpp)
-target_cxx_std(cifgen 17)
+add_executable(unplusplus src/main.cc)
+target_link_libraries(unplusplus PkgConfig::jsoncpp)
+target_cxx_std(unplusplus 17)
 
 add_subdirectory(test)
