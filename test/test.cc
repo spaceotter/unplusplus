@@ -1,3 +1,4 @@
+#include <iostream>
 #include "test.hh"
 
 using namespace c;
@@ -16,4 +17,8 @@ Point *Point::addTo(Point *other) {
   other->x += x;
   other->y += y;
   return other;
+}
+
+void Point::print() {
+  std::cout << "(" << x << ", " << y << ")" << std::endl;
 }

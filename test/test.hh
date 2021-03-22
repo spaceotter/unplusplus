@@ -8,5 +8,6 @@ namespace c {
     int magSQ();
     Point add(Point other);
     Point *addTo(Point *other);
+    void print();
   };
 }
