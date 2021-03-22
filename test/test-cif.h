@@ -5,7 +5,6 @@
 #include "test.hh"
 typedef c::Point c_Point;
 #else
-struct _struct_c_Point;
 typedef struct _struct_c_Point c_Point;
 #endif
 

@@ -7,20 +7,25 @@ project(cifgen)
 
 add_subdirectory(c2ffi)
 
+include(FindPkgConfig)
+pkg_check_modules(jsoncpp REQUIRED IMPORTED_TARGET jsoncpp)
+
 if (NOT ECL_INCLUDE_DIR)
     set(ECL_INCLUDE_DIR /usr/include)
     set(ECL_LINK_DIR /usr/lib)
     set(ECL_BINARY_DIR /usr/bin)
 endif()
 
+set(SPECGEN_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/specgen")
 function(add_specgen header_file lang dir)
     file(REAL_PATH "${header_file}" header_file BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
     get_filename_component(base "${header_file}" NAME_WLE)
+    set("${base}_SPEC_FILE" "${dir}/${base}.spec" PARENT_SCOPE)
     add_custom_command(OUTPUT "${dir}/${base}.spec"
         COMMAND
         "env"
         "PATH=$<TARGET_PROPERTY:c2ffi,RUNTIME_OUTPUT_DIRECTORY>:$$PATH"
-        "${CMAKE_CURRENT_SOURCE_DIR}/specgen"
+        "${SPECGEN_SCRIPT}"
         "${header_file}"
         "${lang}"
         DEPENDS "${header_file}" c2ffi
@@ -28,11 +33,8 @@ function(add_specgen header_file lang dir)
     add_custom_target("${base}-spec" DEPENDS "${dir}/${base}.spec")
 endfunction()
 
-add_library(test STATIC test.cc)
-add_specgen(libtest.hh c++ "${CMAKE_CURRENT_BINARY_DIR}")
-add_dependencies(test libtest-spec)
+add_executable(cifgen src/main.cc)
+target_link_libraries(cifgen PkgConfig::jsoncpp)
+target_cxx_std(cifgen 17)
 
-add_library(test-cif STATIC test-cif.cc)
-target_link_libraries(test-cif test)
-add_specgen(test-cif.h c "${CMAKE_CURRENT_BINARY_DIR}")
-add_dependencies(test-cif test-cif-spec)
+add_subdirectory(test)
