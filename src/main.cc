@@ -60,10 +60,15 @@ void handle_type(Json::Value &v, ostream &out, bool top = true) {
   }
 }
 
-void handle_parameters(Json::Value &v, ostream &out) {
+void handle_parameters(Json::Value &v, ostream &out, bool sig) {
   for (unsigned i = 0; i < v.size(); i++) {
     Json::Value p = v[i];
-    handle_type(p["type"], out);
+    if (sig) {
+      handle_type(p["type"], out);
+    } else if (p["type"]["tag"] == ":struct") {
+      // change to pass-by pointer
+      out << "*";
+    }
     out << p["name"].asString();
     if (i < v.size() - 1) {
       out << ", ";
@@ -79,20 +84,14 @@ void handle_ctor(Json::Value &v, ostream &hf, ostream &sf, int parent) {
   stringstream ctor_sig;
   ctor_sig << pname << " *" << fname << "(";
   Json::Value ps = v["parameters"];
-  handle_parameters(ps, ctor_sig);
+  handle_parameters(ps, ctor_sig, true);
   ctor_sig << ")";
   hf << ctor_sig.str() << ";\n";
 
   sf << "// location: " << v["location"].asString() << "\n";
   sf << ctor_sig.str() << " {\n  ";
   sf << "return new " << pname << "(";
-  for (unsigned i = 0; i < ps.size(); i++) {
-    Json::Value p = ps[i];
-    sf << p["name"].asString();
-    if (i < ps.size() - 1) {
-      sf << ", ";
-    }
-  }
+  handle_parameters(ps, sf, false);
   sf << ");\n}\n";
 }
 
@@ -122,7 +121,7 @@ void handle_method(Json::Value &v, ostream &hf, ostream &sf, int parent) {
   Json::Value ps = v["parameters"];
   if (ps.size() > 0) {
     method_sig << ", ";
-    handle_parameters(ps, method_sig);
+    handle_parameters(ps, method_sig, true);
   }
   method_sig << ")";
 
@@ -137,13 +136,7 @@ void handle_method(Json::Value &v, ostream &hf, ostream &sf, int parent) {
     }
     sf << upp_this << "->" << name << "(";
   }
-  for (unsigned i = 0; i < ps.size(); i++) {
-    Json::Value p = ps[i];
-    sf << p["name"].asString();
-    if (i < ps.size() - 1) {
-      sf << ", ";
-    }
-  }
+  handle_parameters(ps, sf, false);
 
   sf << ");\n}\n";
 }
