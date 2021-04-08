@@ -52,11 +52,19 @@ void Writer::write_struct(Json::Value &v) {
   string name = v["name"].asString();
   int id = v["id"].asInt();
   int parent = v["ns"].asInt();
-  if (parent == 0)
-    //ns[id] = Identifier(name);
-    ns.emplace(id, Identifier(name));
-  else
-    ns.emplace(id, Identifier(ns.at(parent), name));
+  if (v.isMember("template")) {
+    Identifier tp = tparams(v["template"]);
+    if (parent == 0)
+      ns.emplace(id, Identifier(Identifier::root_prefix + name + Identifier::c_separator + tp.c, name + tp.cpp));
+    else
+      ns.emplace(
+          id, Identifier(ns.at(parent), name + Identifier::c_separator + tp.c, name + tp.cpp));
+  } else {
+    if (parent == 0)
+      ns.emplace(id, Identifier(name));
+    else
+      ns.emplace(id, Identifier(ns.at(parent), name));
+  }
   Identifier &s = ns.at(id);
 
   sf << "// location: " << v["location"].asString() << "\n";
@@ -94,7 +102,7 @@ void Writer::write_struct(Json::Value &v) {
 static unordered_map<string, string> type_map = {
     {":long", "long"}, {":int", "int"}, {":void", "void"}};
 
-void Writer::write_type(Json::Value &v, ostream &out, bool top) {
+void Writer::write_type(Json::Value &v, ostream &out, bool top) const {
   string tag = v["tag"].asString();
   if (type_map.count(tag)) {
     out << type_map.at(tag) << " ";
@@ -153,7 +161,9 @@ unordered_map<string, string> operator_map = {
     {"/", "div"},
     {"-", "sub"},
     {"=", "set"},
-    {"()", "call"}
+    {"()", "call"},
+    {"[]", "idx"},
+    {" ", "_"}
 };
 
 static string sanitize_identifier(string name) {
@@ -218,4 +228,61 @@ void Writer::write_method(Json::Value &v, Identifier &p) {
   write_params(ps, sf, false);
 
   sf << ");\n}\n";
+}
+
+Identifier Writer::tparam_type(Json::Value &v) const {
+  std::stringstream sscpp;
+  std::stringstream ssc;
+  string tag = v["tag"].asString();
+  if (type_map.count(tag)) {
+    sscpp << type_map.at(tag);
+    ssc << type_map.at(tag);
+  } else if (tag == ":pointer" || tag == ":reference") {
+    Identifier i = tparam_type(v["type"]);
+    ssc << i.c;
+    sscpp << i.cpp;
+    if (tag == ":pointer") {
+      ssc << Identifier::c_separator << "ptr";
+      sscpp << "*";
+    } else {
+      ssc << Identifier::c_separator << "ref";
+      sscpp << "&";
+    }
+  } else if (tag == ":struct") {
+    return ns.at(v["id"].asInt());
+  } else {
+    sscpp << "/*" << v << "*/ ";
+    ssc << "unknown";
+  }
+  return Identifier(sanitize_identifier(ssc.str()), sscpp.str());
+}
+
+Identifier Writer::tparams(Json::Value &v) const {
+  std::stringstream sscpp;
+  std::stringstream ssc;
+  sscpp << "<";
+  for (unsigned i = 0; i < v.size(); i++) {
+    Json::Value &p = v[i];
+    string tag = p["tag"].asString();
+    if (tag != "parameter") {
+      sscpp << "/* " << p << " */";
+      ssc << "unknown";
+    } else {
+      if (!p.isMember("value")) {
+        Identifier i = tparam_type(p["type"]);
+        ssc << i.c;
+        sscpp << i.cpp;
+      } else {
+        string val = p["value"].asString();
+        sscpp << val;
+        ssc << val;
+      }
+    }
+    if (i < v.size() - 1) {
+      sscpp << ", ";
+      ssc << Identifier::c_separator;
+    }
+  }
+  sscpp << ">";
+  return Identifier(ssc.str(), sscpp.str());
 }

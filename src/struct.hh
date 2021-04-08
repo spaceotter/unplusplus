@@ -36,8 +36,10 @@ namespace upp {
     void write_struct(Json::Value &v);
     void write_ctor(Json::Value &v, Identifier &p);
     void write_method(Json::Value &v, Identifier &p);
-    void write_type(Json::Value &v, std::ostream &out, bool top = true);
+    void write_type(Json::Value &v, std::ostream &out, bool top = true) const;
     void write_params(Json::Value &v, std::ostream &out, bool sig);
+    Identifier tparams(Json::Value &v) const;
+    Identifier tparam_type(Json::Value &v) const;
   };
 
 } //namespace upp

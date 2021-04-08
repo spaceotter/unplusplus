@@ -12,4 +12,13 @@ namespace c {
     void print();
     Point operator+(const Point &other) const;
   };
+
+  template <class T, int L>
+  struct Size {
+    T W;
+    T H;
+    T a[L];
+  };
 }
+
+typedef c::Size<int, 5> iSize;
