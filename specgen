@@ -10,7 +10,7 @@ orig=$1
 base=$(basename "$orig")
 base=$(echo "$base" | rev | cut -f 2- -d '.' | rev)
 if [ "$2" == "c++" ]; then
-    c2ffi "$orig" -M -T -D json $extra_args -o "$base.spec"
+    c2ffi "$orig" -m -T -D json $extra_args -o "$base.spec"
 elif [ "$2" == "c" ]; then
     c2ffi "$orig" -D null -M "$base.mac.h" $extra_args
     # the ordering from c2ffi is not determinstic
