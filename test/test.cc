@@ -9,7 +9,7 @@ int Point::magSQ() {
   return x*x + y*y;
 }
 
-Point Point::add(Point other) {
+Point Point::add(const Point &other) const {
   return {other.x + x, other.y + y};
 }
 
@@ -21,4 +21,8 @@ Point *Point::addTo(Point *other) {
 
 void Point::print() {
   std::cout << "(" << x << ", " << y << ")" << std::endl;
+}
+
+Point Point::operator+(const Point &other) const {
+  return {other.x + x, other.y + y};
 }

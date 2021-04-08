@@ -33,7 +33,7 @@ function(add_specgen src_target header_file lang dir)
     add_custom_target("${base}-spec" DEPENDS "${dir}/${base}.spec")
 endfunction()
 
-add_executable(unplusplus src/main.cc)
+add_executable(unplusplus src/main.cc src/struct.cc)
 target_link_libraries(unplusplus PkgConfig::jsoncpp)
 target_cxx_std(unplusplus 17)
 
