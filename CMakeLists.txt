@@ -25,7 +25,8 @@ endif()
 set(SOURCE_FILES
     src/main.cpp
     src/identifier.cpp
-    src/outputs.cpp)
+    src/outputs.cpp
+    src/action.cpp)
 
 add_executable(unplusplus ${SOURCE_FILES})
 target_compile_definitions(unplusplus PUBLIC "CLANG_RESOURCE_DIRECTORY=R\"\(${CLANG_RESOURCE_DIR}\)\"")
