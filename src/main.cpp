@@ -44,7 +44,7 @@ class IndexActionFactory : public clang::tooling::FrontendActionFactory {
     opts.IndexMacrosInPreprocessor = true;
     opts.IndexParametersInDeclarations = true;
     opts.IndexTemplateParameters = false;
-    opts.SystemSymbolFilter = clang::index::IndexingOptions::SystemSymbolFilterKind::None;
+    opts.SystemSymbolFilter = clang::index::IndexingOptions::SystemSymbolFilterKind::All;
     IndexDataConsumer idx;
     return createIndexingAction(std::make_shared<IndexDataConsumer>(idx), opts);
   }
