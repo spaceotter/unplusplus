@@ -9,12 +9,9 @@
 #include <vector>
 #include <filesystem>
 
-#include "clang/Index/IndexDataConsumer.h"
-#include "clang/Index/IndexingAction.h"
-#include "clang/Index/IndexingOptions.h"
-#include "clang/Tooling/CommonOptionsParser.h"
-#include "clang/Tooling/Tooling.h"
-#include "llvm/Support/CommandLine.h"
+#include <clang/Tooling/CommonOptionsParser.h>
+#include <clang/Tooling/Tooling.h>
+#include <llvm/Support/CommandLine.h>
 
 #include "outputs.hpp"
 #include "identifier.hpp"
