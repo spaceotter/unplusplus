@@ -28,7 +28,7 @@ set(SOURCE_FILES
     src/outputs.cpp)
 
 add_executable(unplusplus ${SOURCE_FILES})
-target_compile_definitions(unplusplus PUBLIC "CLANG_RESOURCE_DIRECTORY=R\"\(${CLANG_RESOURCE_DIRECTORY}\)\"")
+target_compile_definitions(unplusplus PUBLIC "CLANG_RESOURCE_DIRECTORY=R\"\(${CLANG_RESOURCE_DIR}\)\"")
 set_target_properties(unplusplus PROPERTIES CXX_STANDARD 17)
 target_include_directories(unplusplus PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 

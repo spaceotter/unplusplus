@@ -36,39 +36,38 @@ class IndexDataConsumer : public index::IndexDataConsumer {
     // send output to a temporary buffer in case we have to recurse to write a forward declaration.
     SubOutputs temp(_outs);
     if (const NamedDecl *nd = dynamic_cast<const NamedDecl *>(d)) {
-      std::cout << "Decl name:" << nd->getDeclName().getAsString() << std::endl;
       temp.hf() << "// Decl name:" << nd->getDeclName().getAsString() << "\n";
     } else {
-      std::cout << "Unnamed Decl" << std::endl;
+      temp.hf() << "// Unnamed Decl\n";
     }
     SourceManager &SM = d->getASTContext().getSourceManager();
-    std::cout << "Source: " << sl.printToString(SM) << " which is: ";
+    temp.hf() << "// Source: " << sl.printToString(SM) << " which is: ";
     FileID FID = SM.getFileID(SM.getFileLoc(sl));
     bool Invalid = false;
     const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
     switch(SEntry.getFile().getFileCharacteristic()) {
       case SrcMgr::CharacteristicKind::C_ExternCSystem:
-        std::cout << "ExternCSystem";
+        temp.hf() << "ExternCSystem";
         break;
       case SrcMgr::CharacteristicKind::C_User:
-        std::cout << "User";
+        temp.hf() << "User";
         break;
       case SrcMgr::CharacteristicKind::C_System:
-        std::cout << "System";
+        temp.hf() << "System";
         break;
       case SrcMgr::CharacteristicKind::C_User_ModuleMap:
-        std::cout << "User ModuleMap";
+        temp.hf() << "User ModuleMap";
         break;
       case SrcMgr::CharacteristicKind::C_System_ModuleMap:
-        std::cout << "System ModuleMap";
+        temp.hf() << "System ModuleMap";
         break;
     }
-    std::cout << std::endl;
+    temp.hf() << "\n";
     if (ani.Parent != nullptr) {
       if (const NamedDecl *nd = dynamic_cast<const NamedDecl *>(ani.Parent)) {
-        std::cout << "Parent Decl name:" << nd->getDeclName().getAsString() << std::endl;
+        temp.hf() << "// Parent Decl name:" << nd->getDeclName().getAsString() << "\n";
       } else {
-        std::cout << "Unnamed Decl" << std::endl;
+        temp.hf() << "// Unnamed Decl\n";
       }
     }
     return true;
@@ -98,11 +97,11 @@ static cl::opt<std::string> OutStem("o", cl::desc("Output files base name"), cl:
 
 int main(int argc, const char **argv) {
   std::vector<const char *> args(argv, argv + argc);
+  std::cout << "clang resource dir: " << CLANG_RESOURCE_DIRECTORY << std::endl;
+  args.push_back("--extra-arg-before=-resource-dir=" CLANG_RESOURCE_DIRECTORY);
   args.push_back("--");
   args.push_back("clang++");
   args.push_back("-c");
-  args.push_back("-resource-dir");
-  args.push_back(CLANG_RESOURCE_DIRECTORY);
   int size = args.size();
   tooling::CommonOptionsParser OptionsParser(size, args.data(), UppCategory);
   std::vector<std::string> sources = OptionsParser.getSourcePathList();
