@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 project(unplusplus)
 
-set(SOURCE_FILES src/main.cpp)
-
 # Find Clang resource directory with Clang executable.
 if(NOT CLANG_RESOURCE_DIR)
     set(CLANG_EXECUTABLE "/opt/llvm11/bin/clang")
@@ -23,6 +21,11 @@ if(NOT CLANG_RESOURCE_DIR)
             executable. Output:\n ${CLANG_FIND_RESOURCE_DIR_ERROR}")
     endif()
 endif()
+
+set(SOURCE_FILES
+    src/main.cpp
+    src/identifier.cpp
+    src/outputs.cpp)
 
 add_executable(unplusplus ${SOURCE_FILES})
 target_compile_definitions(unplusplus PUBLIC "CLANG_RESOURCE_DIRECTORY=R\"\(${CLANG_RESOURCE_DIRECTORY}\)\"")
