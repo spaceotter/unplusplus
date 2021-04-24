@@ -23,7 +23,29 @@ class IndexDataConsumer : public index::IndexDataConsumer {
     } else {
       std::cout << "Unnamed Decl" << std::endl;
     }
-    std::cout << "Source: " << sl.printToString(d->getASTContext().getSourceManager()) << std::endl;
+    SourceManager &SM = d->getASTContext().getSourceManager();
+    std::cout << "Source: " << sl.printToString(SM) << " which is: ";
+    FileID FID = SM.getFileID(SM.getFileLoc(sl));
+    bool Invalid = false;
+    const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
+    switch(SEntry.getFile().getFileCharacteristic()) {
+      case SrcMgr::CharacteristicKind::C_ExternCSystem:
+        std::cout << "ExternCSystem";
+        break;
+      case SrcMgr::CharacteristicKind::C_User:
+        std::cout << "User";
+        break;
+      case SrcMgr::CharacteristicKind::C_System:
+        std::cout << "System";
+        break;
+      case SrcMgr::CharacteristicKind::C_User_ModuleMap:
+        std::cout << "User ModuleMap";
+        break;
+      case SrcMgr::CharacteristicKind::C_System_ModuleMap:
+        std::cout << "System ModuleMap";
+        break;
+    }
+    std::cout << std::endl;
     if (ani.Parent != nullptr) {
       if (const NamedDecl *nd = dynamic_cast<const NamedDecl *>(ani.Parent)) {
         std::cout << "Parent Decl name:" << nd->getDeclName().getAsString() << std::endl;
