@@ -41,6 +41,7 @@ int main(int argc, const char **argv) {
   path stem;
   if (OutStem.empty()) {
     stem = path(sources[0]).stem();
+    stem += ".clib";
   } else {
     stem = path(OutStem.getValue());
   }

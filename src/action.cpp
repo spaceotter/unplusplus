@@ -40,11 +40,11 @@ bool IndexDataConsumer::handleDeclOccurrence(const Decl *d, clang::index::Symbol
 std::unique_ptr<clang::FrontendAction> IndexActionFactory::create() {
   clang::index::IndexingOptions opts;
   opts.IndexFunctionLocals = false;
-  opts.IndexImplicitInstantiation = false;
+  opts.IndexImplicitInstantiation = true;
   opts.IndexMacrosInPreprocessor = true;
   opts.IndexParametersInDeclarations = true;
   opts.IndexTemplateParameters = false;
-  opts.SystemSymbolFilter = clang::index::IndexingOptions::SystemSymbolFilterKind::All;
+  opts.SystemSymbolFilter = clang::index::IndexingOptions::SystemSymbolFilterKind::DeclarationsOnly;
   IndexDataConsumer idx(_dh);
   return createIndexingAction(std::make_shared<IndexDataConsumer>(idx), opts);
 }

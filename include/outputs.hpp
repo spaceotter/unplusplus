@@ -50,7 +50,7 @@ class SubOutputs : public Outputs {
   std::ostringstream _sf;
 
  public:
-  SubOutputs(Outputs &parent) : Outputs(parent.cfg()), _parent(parent) {}
+  explicit SubOutputs(Outputs &parent) : Outputs(parent.cfg()), _parent(parent) {}
   ~SubOutputs();
   std::ostream &hf() override { return _hf; };
   std::ostream &sf() override { return _sf; };

@@ -83,6 +83,17 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
   using ContextsTy = SmallVector<const DeclContext *, 8>;
   ContextsTy Contexts;
 
+  os << cfg.root_prefix;
+
+  bool ctor = dyn_cast<CXXConstructorDecl>(d);
+  bool dtor = dyn_cast<CXXDestructorDecl>(d);
+  if (ctor) {
+    os << cfg.ctor;
+  }
+  if (dtor) {
+    os << cfg.dtor;
+  }
+
   // Collect named contexts.
   while (Ctx) {
     if (isa<NamedDecl>(Ctx)) Contexts.push_back(Ctx);
@@ -106,9 +117,9 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
     }
   }
 
-  os << cfg.root_prefix;
-
+  bool first = true;
   for (const DeclContext *DC : llvm::reverse(Contexts)) {
+    if (!first) os << cfg.c_separator;
     if (const auto *D = dyn_cast<Decl>(DC)) {
       AccessSpecifier a = D->getAccess();
       if (a == AccessSpecifier::AS_private) throw mangling_error("Private parent decl");
@@ -146,26 +157,29 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
     } else {
       os << cast<NamedDecl>(DC)->getDeclName().getAsString();
     }
-    os << cfg.c_separator;
+    first = false;
   }
 
-  if (d->getDeclName())
-    os << d->getDeclName().getAsString();
-  else {
-    // Give the printName override a chance to pick a different name before we
-    // fall back to "(anonymous)".
-    SmallString<64> NameBuffer;
-    llvm::raw_svector_ostream NameOS(NameBuffer);
-    d->printName(NameOS);
-    if (NameBuffer.empty())
-      throw mangling_error("Anonymous Decl");
-    else
-      os << NameBuffer.c_str();
-  }
-
-  if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
+  if (!ctor && !dtor) {
     os << cfg.c_separator;
-    printCTemplateArgs(os, t->getTemplateArgs().asArray(), PP, cfg);
+    if (d->getDeclName())
+      os << d->getDeclName().getAsString();
+    else {
+      // Give the printName override a chance to pick a different name before we
+      // fall back to "(anonymous)".
+      SmallString<64> NameBuffer;
+      llvm::raw_svector_ostream NameOS(NameBuffer);
+      d->printName(NameOS);
+      if (NameBuffer.empty())
+        throw mangling_error("Anonymous Decl");
+      else
+        os << NameBuffer.c_str();
+    }
+
+    if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
+      os << cfg.c_separator;
+      printCTemplateArgs(os, t->getTemplateArgs().asArray(), PP, cfg);
+    }
   }
 
   return cfg.sanitize(os.str());

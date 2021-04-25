@@ -7,6 +7,8 @@
 
 #include <clang/AST/ASTContext.h>
 #include <llvm/ADT/TypeSwitch.h>
+#include <clang/AST/DeclCXX.h>
+#include <clang/AST/DeclTemplate.h>
 
 #include "identifier.hpp"
 
@@ -24,12 +26,14 @@ struct DeclWriter {
   DeclWriter(const T *d, DeclHandler &dh) : _d(d), _dh(dh), _out(dh.out()), _i(d, _out.cfg()) {}
   ~DeclWriter() {}
 
-  void preamble() {
+  const IdentifierConfig &cfg() const { return _out.cfg(); }
+
+  void preamble(Outputs &out) {
     std::string location = _d->getLocation().printToString(_d->getASTContext().getSourceManager());
-    _out.hf() << "// location: " << location << "\n";
-    _out.hf() << "// C++ name: " << _i.cpp << "\n";
-    _out.sf() << "// location: " << location << "\n";
-    _out.sf() << "// C++ name: " << _i.cpp << "\n";
+    out.hf() << "// location: " << location << "\n";
+    out.hf() << "// C++ name: " << _i.cpp << "\n";
+    out.sf() << "// location: " << location << "\n";
+    out.sf() << "// C++ name: " << _i.cpp << "\n";
   }
 
   // Ensure that the type is declared already
@@ -49,14 +53,14 @@ struct DeclWriter {
 struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
   TypedefDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     SubOutputs out(_out);
-    preamble();
+    preamble(out);
 
     // need to add a forward declaration if the target type is a struct - it may not have been
     // declared already.
-    const Type *t = d->getUnderlyingType().getTypePtrOrNull();
+    const Type *t = d->getUnderlyingType().getTypePtrOrNull()->getUnqualifiedDesugaredType();
     forward(t);
     try {
-      Identifier ti(t, _out.cfg());
+      Identifier ti(t, cfg());
       out.hf() << "#ifdef __cplusplus\n";
       if (_i.cpp == _i.c) out.hf() << "// ";
       out.hf() << "typedef " << ti.cpp << " " << _i.c << ";\n";
@@ -73,24 +77,43 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
 
 struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
   FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    std::cout << "function" << d << std::endl;
     SubOutputs out(_out);
-    preamble();
+    preamble(out);
 
     try {
       const Type *rt = d->getReturnType().getTypePtrOrNull()->getUnqualifiedDesugaredType();
-      Identifier ri(rt, _out.cfg());
+      Identifier ri(rt, cfg());
+      forward(rt);
       // avoid returning structs by value?
       bool ret_param = rt->isRecordType() || rt->isReferenceType();
-      forward(rt);
-      std::string sig_start = (ret_param ? "void" : ri.c) + " " + _i.c + "(";
+      Identifier parent;
+      if (const auto *m = dyn_cast<CXXMethodDecl>(d)) {
+        parent = Identifier(m->getParent(), cfg());
+      }
+      bool ctor = dyn_cast<CXXConstructorDecl>(d);
+      bool dtor = dyn_cast<CXXDestructorDecl>(d);
+      std::string sig_start;
+      if (ret_param)
+        sig_start = "void";
+      else if (ctor)
+        sig_start = parent.c + "*";
+      else
+        sig_start = ri.c;
+      sig_start += " " + _i.c + "(";
       out.hf() << sig_start;
       out.sf() << sig_start;
       std::vector<std::string> args;
       args.reserve(d->param_size());
       bool first = true;
       if (ret_param) {
-        out.hf() << ri.c << "* " << _out.cfg()._return;
-        out.sf() << ri.c << "* " << _out.cfg()._return;
+        out.hf() << ri.c << "* " << cfg()._return;
+        out.sf() << ri.c << "* " << cfg()._return;
+        first = false;
+      }
+      if (!parent.empty() && !ctor) {
+        out.hf() << parent.c << "* " << cfg()._this;
+        out.sf() << parent.c << "* " << cfg()._this;
         first = false;
       }
       for (const auto &p : d->parameters()) {
@@ -100,9 +123,10 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
         }
         const Type *pt = p->getType().getTypePtrOrNull()->getUnqualifiedDesugaredType();
         bool ptrize = pt->isRecordType() || pt->isReferenceType();
-        Identifier pi(pt, _out.cfg());
+        Identifier pi(pt, cfg());
+        forward(pt);
         if (ptrize) pi.c += "*";
-        std::string san = _out.cfg().sanitize(p->getDeclName().getAsString());
+        std::string san = cfg().sanitize(p->getDeclName().getAsString());
         out.hf() << pi.c << " " << san;
         out.sf() << pi.c << " " << san;
         if (ptrize)
@@ -112,15 +136,31 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
         first = false;
       }
       out.hf() << ");\n\n";
-      out.sf() << ") {\n  " << (ret_param ? "*" + _out.cfg()._return + " = " : "return ") << _i.cpp
-               << "(";
-      first = true;
-      for (const auto &a : args) {
-        if (!first) out.sf() << ", ";
-        out.sf() << a;
-        first = false;
+      out.sf() << ") {\n  ";
+      if (dtor) {
+        out.sf() << "delete " << cfg()._this;
+      } else {
+        if (ret_param)
+          out.sf() << "*" << cfg()._return << " = " << _i.cpp;
+        else if (ctor)
+          out.sf() << "return new " << parent.cpp;
+        else {
+          out.sf() << "return ";
+          if (parent.empty())
+            out.sf() << _i.cpp;
+          else
+            out.sf() << cfg()._this << "->" << d->getDeclName().getAsString();
+        }
+        out.sf() << "(";
+        first = true;
+        for (const auto &a : args) {
+          if (!first) out.sf() << ", ";
+          out.sf() << a;
+          first = false;
+        }
+        out.sf() << ")";
       }
-      out.sf() << ");\n}\n\n";
+      out.sf() << ";\n}\n\n";
     } catch (const mangling_error err) {
       std::cerr << "Error: " << err.what() << std::endl;
       out.hf() << "// ERROR: " << err.what() << "\n\n";
@@ -128,19 +168,64 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
   }
 };
 
+struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
+  CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    SubOutputs out(_out);
+    preamble(out);
+    // print only the forward declaration
+    out.hf() << "#ifdef __cplusplus\n";
+    out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
+    out.hf() << "#else\n";
+    out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
+    out.hf() << "#endif // __cplusplus\n\n";
+  }
+  ~CXXRecordDeclWriter() {
+    if (_d->hasDefinition()) {
+      for (const auto method : _d->methods()) {
+        _dh.add(method);
+      }
+      if (!_d->hasUserDeclaredConstructor()) {
+        std::string name = _i.c;
+        name.insert(cfg().root_prefix.size(), cfg().ctor);
+        _out.hf() << "// Implicit constructor of " << _i.cpp << "\n";
+        _out.sf() << "// Implicit constructor of " << _i.cpp << "\n";
+        _out.hf() << _i.c << "* " << name << "();\n\n";
+        _out.sf() << _i.c << "* " << name << "() {\n";
+        _out.sf() << "  return new " << _i.cpp << "();\n}\n\n";
+      }
+      if (!_d->hasUserDeclaredDestructor()) {
+        std::string name = _i.c;
+        name.insert(cfg().root_prefix.size(), cfg().dtor);
+        _out.hf() << "// Implicit destructor of " << _i.cpp << "\n";
+        _out.sf() << "// Implicit destructor of " << _i.cpp << "\n";
+        _out.hf() << "void " << name << "(" << _i.c << "* " << cfg()._this << ");\n\n";
+        _out.sf() << "void " << name << "(" << _i.c << "* " << cfg()._this << ") {\n";
+        _out.sf() << "  delete " << cfg()._this << ";\n}\n\n";
+      }
+    }
+  }
+};
+
 void DeclHandler::add(const NamedDecl *d) {
   if (!_decls.count(d)) {
     _decls.emplace(d);
+    if (d->isTemplated()) return;  // ignore unspecialized template decl
     try {
       if (const auto *sd = dyn_cast<TypedefDecl>(d))
         TypedefDeclWriter(sd, *this);
+      else if (const auto *sd = dyn_cast<CXXRecordDecl>(d))
+        CXXRecordDeclWriter(sd, *this);
       else if (const auto *sd = dyn_cast<FunctionDecl>(d))
         FunctionDeclWriter(sd, *this);
-      else if (const auto *sd = dyn_cast<NamespaceDecl>(d)) {
-        // Ignore, namespaces are handled in the Identifier class
-      } else {
-        std::cerr << "Warning: Unknown Decl kind " << d->getDeclKindName() << std::endl;
-        _out.hf() << "// Warning: Unknown Decl kind " << d->getDeclKindName() << "\n";
+      else if (const auto *sd = dyn_cast<FieldDecl>(d))
+        ;  // Ignore, fields are handled in the respective record
+      else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
+        ;  // Ignore, namespaces are handled in the Identifier class
+      else {
+        std::cerr << "Warning: Unknown Decl kind " << d->getDeclKindName() << " "
+                  << d->getQualifiedNameAsString() << std::endl;
+        _out.hf() << "// Warning: Unknown Decl kind " << d->getDeclKindName() << " "
+                  << d->getQualifiedNameAsString() << "\n\n";
       }
     } catch (const mangling_error err) {
       std::cerr << "Warning: Ignoring " << err.what() << " " << d->getQualifiedNameAsString()

@@ -23,8 +23,8 @@ struct IdentifierConfig {
   std::string _this = "_upp_this";
   std::string _return = "_upp_return";
   std::string _struct = "_s_";
-  std::string dtor = "_dtor";
-  std::string ctor = "_ctor";
+  std::string dtor = "del_";
+  std::string ctor = "new_";
   std::string sanitize(const std::string &name) const;
 };
 
@@ -37,6 +37,8 @@ struct Identifier {
 
   Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg);
   Identifier(const clang::Type *d, const IdentifierConfig &cfg);
+  Identifier() {}
+  bool empty() const { return c.empty() && cpp.empty(); }
 
   std::string c;    // a name-mangled identifier for C
   std::string cpp;  // the fully qualified C++ name
