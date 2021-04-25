@@ -10,7 +10,10 @@ using std::filesystem::path;
 
 FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sources,
                          const IdentifierConfig &cfg)
-    : Outputs(cfg), _outheader(path(stem).concat(".h")), _hf(_outheader), _sf(path(stem).concat(".cpp")) {
+    : Outputs(cfg),
+      _outheader(path(stem).concat(".h")),
+      _hf(_outheader),
+      _sf(path(stem).concat(".cpp")) {
   _macroname = _cfg.sanitize(stem.filename().string());
   _hf << "/*\n";
   _hf << " * This header file was generated automatically by c2ffi.\n";
@@ -22,7 +25,7 @@ FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sourc
     _hf << "#include \"" << src << "\"\n";
   }
   _hf << "extern \"C\" {\n";
-  _hf << "#endif\n\n";
+  _hf << "#endif // __cplusplus\n\n";
 
   _sf << "/*\n";
   _sf << " * This source file was generated automatically by c2ffi.\n";
@@ -35,6 +38,15 @@ FileOutputs::~FileOutputs() {
   _hf << "} // extern \"C\"\n";
   _hf << "#endif // __cplusplus\n";
   _hf << "#endif // " << _macroname << "_CIFGEN_H\n";
+}
+
+void FileOutputs::finalize() {
+  _hf << "// These C system headers were used by the C++ library\n";
+  _hf << "#ifndef __cplusplus\n";
+  for (const auto &p : _cheaders) {
+    _hf << "#include \"" << p << "\"\n";
+  }
+  _hf << "#endif // __cplusplus\n\n";
 }
 
 SubOutputs::~SubOutputs() {

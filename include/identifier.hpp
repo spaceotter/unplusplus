@@ -5,11 +5,11 @@
 
 #pragma once
 
+#include <clang/AST/Decl.h>
+
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-
-#include <clang/AST/Decl.h>
 
 namespace unplusplus {
 struct mangling_error : public std::runtime_error {
@@ -39,4 +39,4 @@ struct Identifier {
   std::string c;    // a name-mangled identifier for C
   std::string cpp;  // the fully qualified C++ name
 };
-}
+}  // namespace unplusplus

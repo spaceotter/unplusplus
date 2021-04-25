@@ -3,8 +3,7 @@
  * Copyright 2021 Eric Eaton
  */
 
-#include <unordered_map>
-#include <sstream>
+#include "identifier.hpp"
 
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
@@ -12,7 +11,8 @@
 #include <clang/AST/PrettyPrinter.h>
 #include <clang/AST/TemplateBase.h>
 
-#include "identifier.hpp"
+#include <sstream>
+#include <unordered_map>
 
 using namespace unplusplus;
 using namespace clang;

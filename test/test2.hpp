@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stdint.h>
 #include <math.h>
+#include <stdint.h>
 
 extern uint8_t blah;
 

@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include <memory>
-
-#include <clang/Index/IndexDataConsumer.h>
 #include <clang/Frontend/FrontendAction.h>
+#include <clang/Index/IndexDataConsumer.h>
 #include <clang/Tooling/Tooling.h>
+
+#include <memory>
 
 #include "outputs.hpp"
 
@@ -34,4 +34,4 @@ class IndexActionFactory : public clang::tooling::FrontendActionFactory {
 
   std::unique_ptr<clang::FrontendAction> create() override;
 };
-}
+}  // namespace unplusplus

@@ -3,19 +3,19 @@
  * Copyright 2021 Eric Eaton
  */
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <filesystem>
-
 #include <clang/Tooling/CommonOptionsParser.h>
 #include <clang/Tooling/Tooling.h>
 #include <llvm/Support/CommandLine.h>
 
-#include "outputs.hpp"
-#include "identifier.hpp"
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <vector>
+
 #include "action.hpp"
+#include "identifier.hpp"
+#include "outputs.hpp"
 
 using namespace clang;
 using namespace llvm;
@@ -23,7 +23,8 @@ using namespace unplusplus;
 using std::filesystem::path;
 
 static cl::OptionCategory UppCategory("unplusplus options");
-static cl::opt<std::string> OutStem("o", cl::desc("Output files base name"), cl::Optional, cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
+static cl::opt<std::string> OutStem("o", cl::desc("Output files base name"), cl::Optional,
+                                    cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
 
 int main(int argc, const char **argv) {
   std::vector<const char *> args(argv, argv + argc);
@@ -45,6 +46,9 @@ int main(int argc, const char **argv) {
   std::cout << "Writing library to: " << stem.string() << ".*" << std::endl;
   IdentifierConfig icfg;
   FileOutputs fout(stem, sources, icfg);
-  IndexActionFactory Factory(fout);
-  return Tool.run(&Factory);
+  SubOutputs temp(fout);
+  IndexActionFactory Factory(temp);
+  int ret = Tool.run(&Factory);
+  fout.finalize();
+  return ret;
 }
