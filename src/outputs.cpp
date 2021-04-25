@@ -41,12 +41,14 @@ FileOutputs::~FileOutputs() {
 }
 
 void FileOutputs::finalize() {
-  _hf << "// These C system headers were used by the C++ library\n";
-  _hf << "#ifndef __cplusplus\n";
-  for (const auto &p : _cheaders) {
-    _hf << "#include \"" << p << "\"\n";
+  if (!_cheaders.empty()) {
+    _hf << "// These C system headers were used by the C++ library\n";
+    _hf << "#ifndef __cplusplus\n";
+    for (const auto &p : _cheaders) {
+      _hf << "#include \"" << p << "\"\n";
+    }
+    _hf << "#endif // __cplusplus\n\n";
   }
-  _hf << "#endif // __cplusplus\n\n";
 }
 
 SubOutputs::~SubOutputs() {

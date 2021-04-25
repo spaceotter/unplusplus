@@ -223,9 +223,6 @@ Identifier::Identifier(const Type *t, const IdentifierConfig &cfg) {
       cpp += "*";
     } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
       *this = Identifier(pt->getPointeeType().getTypePtrOrNull(), cfg);
-      // Convert refs to pointers - gotta remember to dereference elsewhere
-      c += "*";
-      cpp += "*";
     } else {
       throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
     }
