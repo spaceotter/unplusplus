@@ -5,15 +5,15 @@
 
 #include "decls.hpp"
 
-#include <llvm/ADT/TypeSwitch.h>
 #include <clang/AST/ASTContext.h>
+#include <llvm/ADT/TypeSwitch.h>
 
 #include "identifier.hpp"
 
 using namespace unplusplus;
 using namespace clang;
 
-template<class T>
+template <class T>
 struct DeclWriter {
   typedef T type;
   const T *_d;
@@ -31,7 +31,7 @@ struct DeclWriter {
   ~DeclWriter() {}
 
   // Ensure that the type is declared already
-  void forward (const Type *t) {
+  void forward(const Type *t) {
     if (t == nullptr) {
       return;
     } else if (const auto *tt = dyn_cast<TagType>(t)) {
@@ -66,7 +66,7 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
       out.hf() << "// ERROR: " << err.what() << "\n";
     }
   }
-  ~TypedefDeclWriter() { }
+  ~TypedefDeclWriter() {}
 };
 
 static void handle(const TypedefDecl *d, const Identifier &i, Outputs &out) {}

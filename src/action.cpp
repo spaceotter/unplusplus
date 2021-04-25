@@ -4,10 +4,11 @@
  */
 
 #include "action.hpp"
-#include "decls.hpp"
 
 #include <clang/Index/IndexingAction.h>
 #include <clang/Index/IndexingOptions.h>
+
+#include "decls.hpp"
 
 using namespace unplusplus;
 using namespace clang;

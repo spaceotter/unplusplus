@@ -14,9 +14,9 @@
 #include <vector>
 
 #include "action.hpp"
+#include "decls.hpp"
 #include "identifier.hpp"
 #include "outputs.hpp"
-#include "decls.hpp"
 
 using namespace clang;
 using namespace llvm;

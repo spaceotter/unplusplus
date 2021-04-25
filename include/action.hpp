@@ -11,8 +11,8 @@
 
 #include <memory>
 
-#include "outputs.hpp"
 #include "decls.hpp"
+#include "outputs.hpp"
 
 namespace unplusplus {
 class IndexDataConsumer : public clang::index::IndexDataConsumer {

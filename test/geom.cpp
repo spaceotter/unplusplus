@@ -1,6 +1,6 @@
-#include "test2.hpp"
-
 #include <iostream>
+
+#include "test2.hpp"
 
 using namespace geom;
 
