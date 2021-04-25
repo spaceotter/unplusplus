@@ -11,46 +11,37 @@
 using namespace unplusplus;
 using namespace clang;
 
+static std::unordered_map<SrcMgr::CharacteristicKind, const std::string> ckStrs {
+  { SrcMgr::CharacteristicKind::C_ExternCSystem, "ExternCSystem" },
+  { SrcMgr::CharacteristicKind::C_User, "User" },
+  { SrcMgr::CharacteristicKind::C_System, "System" },
+  { SrcMgr::CharacteristicKind::C_User_ModuleMap, "User ModuleMap" },
+  { SrcMgr::CharacteristicKind::C_System_ModuleMap, "System ModuleMap" }
+};
+
 bool IndexDataConsumer::handleDeclOccurrence(const Decl *d, clang::index::SymbolRoleSet,
                                              llvm::ArrayRef<clang::index::SymbolRelation>,
                                              clang::SourceLocation sl,
                                              clang::index::IndexDataConsumer::ASTNodeInfo ani) {
   // send output to a temporary buffer in case we have to recurse to write a forward declaration.
   SubOutputs temp(_outs);
-  if (const NamedDecl *nd = dynamic_cast<const NamedDecl *>(d)) {
-    temp.hf() << "// Decl name:" << nd->getDeclName().getAsString() << "\n";
-  } else {
-    temp.hf() << "// Unnamed Decl\n";
-  }
   SourceManager &SM = d->getASTContext().getSourceManager();
-  temp.hf() << "// Source: " << sl.printToString(SM) << " which is: ";
-  FileID FID = SM.getFileID(SM.getFileLoc(sl));
-  bool Invalid = false;
-  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
-  switch (SEntry.getFile().getFileCharacteristic()) {
-    case SrcMgr::CharacteristicKind::C_ExternCSystem:
-      temp.hf() << "ExternCSystem";
-      break;
-    case SrcMgr::CharacteristicKind::C_User:
-      temp.hf() << "User";
-      break;
-    case SrcMgr::CharacteristicKind::C_System:
-      temp.hf() << "System";
-      break;
-    case SrcMgr::CharacteristicKind::C_User_ModuleMap:
-      temp.hf() << "User ModuleMap";
-      break;
-    case SrcMgr::CharacteristicKind::C_System_ModuleMap:
-      temp.hf() << "System ModuleMap";
-      break;
-  }
-  temp.hf() << "\n";
-  if (ani.Parent != nullptr) {
-    if (const NamedDecl *nd = dynamic_cast<const NamedDecl *>(ani.Parent)) {
-      temp.hf() << "// Parent Decl name:" << nd->getDeclName().getAsString() << "\n";
-    } else {
-      temp.hf() << "// Unnamed Decl\n";
+  std::string location = sl.printToString(SM);
+  if (const NamedDecl *nd = dynamic_cast<const NamedDecl *>(d)) {
+    try {
+      Identifier i(nd, temp.cfg());
+      FileID FID = SM.getFileID(SM.getFileLoc(sl));
+      bool Invalid = false;
+      const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
+      SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
+      temp.hf() << "// Decl name: " << i.c << " aka " << i.cpp << "\n";
+      temp.hf() << "// Source: " << location << " which is: ";
+      temp.hf() << ckStrs[SEntry.getFile().getFileCharacteristic()] << "\n";
+    } catch (const mangling_error err) {
+      std::cerr << "Warning: Ignoring " << err.what() << " " << nd->getQualifiedNameAsString() << " at " << location << "\n";
     }
+  } else {
+    std::cerr << "Warning: Ignoring unnamed Decl of kind " << d->getDeclKindName() << "\n";
   }
   return true;
 }
