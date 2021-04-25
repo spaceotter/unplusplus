@@ -7,4 +7,4 @@ struct Foo {
 struct Bar {
   int g(Foo b);
 };
-}
+}  // namespace A

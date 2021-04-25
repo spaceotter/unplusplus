@@ -1,10 +1,10 @@
 namespace A {
-template<class T>
+template <class T>
 struct Foo {
   T m;
   T get() { return m; }
 };
-}
+}  // namespace A
 namespace B {
 typedef A::Foo<int> Bar;
 typedef A::Foo<float> Barf;

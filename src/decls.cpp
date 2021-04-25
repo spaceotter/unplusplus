@@ -6,9 +6,9 @@
 #include "decls.hpp"
 
 #include <clang/AST/ASTContext.h>
-#include <llvm/ADT/TypeSwitch.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/DeclTemplate.h>
+#include <llvm/ADT/TypeSwitch.h>
 
 #include "identifier.hpp"
 
