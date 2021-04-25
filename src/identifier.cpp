@@ -89,9 +89,33 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
     Ctx = Ctx->getParent();
   }
 
+  // FIXME: A hack to filter out internal-only parts of the standard library
+  if (!Contexts.empty()) {
+    if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end()-1))) {
+      std::string root = ND->getDeclName().getAsString();
+      if (root == "__gnu_cxx") {
+        throw mangling_error("Compiler internal");
+      } else if (root == "std" && Contexts.size() > 1) {
+        if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 2))) {
+          std::string root = ND->getDeclName().getAsString();
+          if (root[0] == '_' && root[1] == '_') {
+            throw mangling_error("Compiler internal");
+          }
+        }
+      }
+    }
+  }
+
   os << cfg.root_prefix;
 
   for (const DeclContext *DC : llvm::reverse(Contexts)) {
+    if (const auto *D = dyn_cast<Decl>(DC)) {
+      AccessSpecifier a = D->getAccess();
+      if (a == AccessSpecifier::AS_private)
+        throw mangling_error("Private parent decl");
+      if(a == AccessSpecifier::AS_protected)
+        throw mangling_error("Protected parent decl");
+    }
     if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
       os << Spec->getName().str();
       const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();

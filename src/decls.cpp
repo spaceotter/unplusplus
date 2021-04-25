@@ -22,7 +22,7 @@ struct DeclWriter {
              << d->getLocation().printToString(d->getASTContext().getSourceManager()) << "\n";
     out.hf() << "// C++ name: " << _i.cpp << "\n";
   }
-  ~DeclWriter() { _out.hf() << "// end decl\n"; }
+  ~DeclWriter() {}
 };
 
 struct TypedefDeclWriter : public DeclWriter {
