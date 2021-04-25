@@ -16,6 +16,7 @@
 #include "action.hpp"
 #include "identifier.hpp"
 #include "outputs.hpp"
+#include "decls.hpp"
 
 using namespace clang;
 using namespace llvm;
@@ -47,7 +48,8 @@ int main(int argc, const char **argv) {
   IdentifierConfig icfg;
   FileOutputs fout(stem, sources, icfg);
   SubOutputs temp(fout);
-  IndexActionFactory Factory(temp);
+  DeclHandler dh(temp);
+  IndexActionFactory Factory(dh);
   int ret = Tool.run(&Factory);
   fout.finalize();
   return ret;

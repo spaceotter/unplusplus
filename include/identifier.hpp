@@ -31,10 +31,12 @@ struct IdentifierConfig {
 struct Identifier {
   // remember old identifiers to save time, they don't change
   static std::unordered_map<const clang::NamedDecl *, Identifier> ids;
+  static std::unordered_map<const clang::Type *, Identifier> types;
   // Remember generated names to rename duplicates
   static std::unordered_set<std::string> dups;
 
   Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg);
+  Identifier(const clang::Type *d, const IdentifierConfig &cfg);
 
   std::string c;    // a name-mangled identifier for C
   std::string cpp;  // the fully qualified C++ name

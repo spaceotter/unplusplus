@@ -26,11 +26,10 @@ bool IndexDataConsumer::handleDeclOccurrence(const Decl *d, clang::index::Symbol
     SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
     // The declaration is from a C header that can just be included by the library
     if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem) {
-      _outs.addCHeader(SEntry.getFile().getName().str());
+      _dh.out().addCHeader(SEntry.getFile().getName().str());
       return true;
     }
-    SubOutputs temp(_outs);
-    handle_decl(nd, temp);
+    _dh.add(nd);
   } else {
     std::cerr << "Warning: Ignoring unnamed Decl of kind " << d->getDeclKindName() << "\n";
   }
@@ -45,6 +44,6 @@ std::unique_ptr<clang::FrontendAction> IndexActionFactory::create() {
   opts.IndexParametersInDeclarations = true;
   opts.IndexTemplateParameters = false;
   opts.SystemSymbolFilter = clang::index::IndexingOptions::SystemSymbolFilterKind::All;
-  IndexDataConsumer idx(_outs);
+  IndexDataConsumer idx(_dh);
   return createIndexingAction(std::make_shared<IndexDataConsumer>(idx), opts);
 }

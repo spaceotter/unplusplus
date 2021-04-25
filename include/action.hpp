@@ -12,13 +12,14 @@
 #include <memory>
 
 #include "outputs.hpp"
+#include "decls.hpp"
 
 namespace unplusplus {
 class IndexDataConsumer : public clang::index::IndexDataConsumer {
-  Outputs &_outs;
+  DeclHandler &_dh;
 
  public:
-  IndexDataConsumer(Outputs &outs) : _outs(outs) {}
+  IndexDataConsumer(DeclHandler &dh) : _dh(dh) {}
 
   // Print a message to stdout if any kind of declaration is found
   bool handleDeclOccurrence(const clang::Decl *d, clang::index::SymbolRoleSet,
@@ -27,10 +28,10 @@ class IndexDataConsumer : public clang::index::IndexDataConsumer {
 };
 
 class IndexActionFactory : public clang::tooling::FrontendActionFactory {
-  Outputs &_outs;
+  DeclHandler &_dh;
 
  public:
-  IndexActionFactory(Outputs &outs) : _outs(outs) {}
+  IndexActionFactory(DeclHandler &dh) : _dh(dh) {}
 
   std::unique_ptr<clang::FrontendAction> create() override;
 };

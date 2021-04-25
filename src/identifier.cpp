@@ -174,9 +174,13 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
 }
 
 std::unordered_map<const clang::NamedDecl *, Identifier> Identifier::ids;
+std::unordered_map<const clang::Type *, Identifier> Identifier::types;
 std::unordered_set<std::string> Identifier::dups;
 
 Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
+  if (d == nullptr) {
+    throw mangling_error("Null Decl");
+  }
   if (ids.count(d)) {
     c = ids.at(d).c;
     cpp = ids.at(d).cpp;
@@ -199,5 +203,34 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
       cpp += ArgOS.str().str();
     }
     ids.emplace(std::make_pair(d, *this));
+  }
+}
+
+Identifier::Identifier(const Type *t, const IdentifierConfig &cfg) {
+  if (t == nullptr) {
+    throw mangling_error("Null Decl");
+  }
+  t = t->getUnqualifiedDesugaredType();
+  if (types.count(t)) {
+    *this = types.at(t);
+  } else {
+    if (const auto *bt = dyn_cast<BuiltinType>(t)) {
+      clang::PrintingPolicy pp = clang::PrintingPolicy(clang::LangOptions());
+      c = cpp = bt->getNameAsCString(pp);
+    } else if (const auto *tt = dyn_cast<TagType>(t)) {
+      *this = Identifier(tt->getDecl(), cfg);
+    } else if (const auto *pt = dyn_cast<PointerType>(t)) {
+      *this = Identifier(pt->getPointeeType().getTypePtrOrNull(), cfg);
+      c += "*";
+      cpp += "*";
+    } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
+      *this = Identifier(pt->getPointeeType().getTypePtrOrNull(), cfg);
+      // Convert refs to pointers - gotta remember to dereference elsewhere
+      c += "*";
+      cpp += "*";
+    } else {
+      throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
+    }
+    types.emplace(std::make_pair(t, *this));
   }
 }
