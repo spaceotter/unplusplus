@@ -12,11 +12,11 @@
 namespace unplusplus {
 class DeclHandler {
   Outputs &_out;
-  std::unordered_set<const clang::NamedDecl *> _decls;
+  std::unordered_set<const clang::Decl *> _decls;
 
  public:
   DeclHandler(Outputs &out) : _out(out) {}
-  void add(const clang::NamedDecl *d);
+  void add(const clang::Decl *d);
   Outputs &out() { return _out; }
 };
 }  // namespace unplusplus

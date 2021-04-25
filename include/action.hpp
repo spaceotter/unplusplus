@@ -15,18 +15,6 @@
 #include "outputs.hpp"
 
 namespace unplusplus {
-class IndexDataConsumer : public clang::index::IndexDataConsumer {
-  DeclHandler &_dh;
-
- public:
-  IndexDataConsumer(DeclHandler &dh) : _dh(dh) {}
-
-  // Print a message to stdout if any kind of declaration is found
-  bool handleDeclOccurrence(const clang::Decl *d, clang::index::SymbolRoleSet,
-                            llvm::ArrayRef<clang::index::SymbolRelation>, clang::SourceLocation sl,
-                            clang::index::IndexDataConsumer::ASTNodeInfo ani) override;
-};
-
 class IndexActionFactory : public clang::tooling::FrontendActionFactory {
   DeclHandler &_dh;
 
