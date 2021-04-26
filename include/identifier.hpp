@@ -6,6 +6,7 @@
 #pragma once
 
 #include <clang/AST/Decl.h>
+#include <clang/AST/PrettyPrinter.h>
 
 #include <string>
 #include <unordered_map>
@@ -25,6 +26,7 @@ struct IdentifierConfig {
   std::string _struct = "_s_";
   std::string dtor = "del_";
   std::string ctor = "new_";
+  clang::PrintingPolicy PP = {clang::LangOptions()};
   std::string sanitize(const std::string &name) const;
 };
 

@@ -8,7 +8,6 @@
 #include <clang/AST/Decl.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/DeclTemplate.h>
-#include <clang/AST/PrettyPrinter.h>
 #include <clang/AST/TemplateBase.h>
 
 #include <sstream>
@@ -48,8 +47,7 @@ std::string IdentifierConfig::sanitize(const std::string &name) const {
 }
 
 // replaces printTemplateArgumentList(os, TemplateArgs.asArray(), P);
-static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args,
-                               const PrintingPolicy &PP, const IdentifierConfig &cfg) {
+static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args, const IdentifierConfig &cfg) {
   bool FirstArg = true;
   for (const auto &Arg : Args) {
     // Print the argument into a string.
@@ -58,11 +56,11 @@ static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateA
     const TemplateArgument &Argument = Arg;
     if (Argument.getKind() == TemplateArgument::Pack) {
       if (Argument.pack_size() && !FirstArg) os << cfg.c_separator;
-      printCTemplateArgs(os, Argument.getPackAsArray(), PP, cfg);
+      printCTemplateArgs(os, Argument.getPackAsArray(), cfg);
     } else {
       if (!FirstArg) os << cfg.c_separator;
       // Tries to print the argument with location info if exists.
-      Arg.print(PP, ArgOS);
+      Arg.print(cfg.PP, ArgOS);
     }
 
     StringRef ArgString = ArgOS.str();
@@ -75,7 +73,6 @@ static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateA
 // closely follows the NamedDecl::printQualifiedName method
 static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   std::stringstream os;
-  const PrintingPolicy PP(d->getLangOpts());
   const DeclContext *Ctx = d->getDeclContext();
   if (Ctx->isFunctionOrMethod()) {
     throw mangling_error("Identifier in function or method");
@@ -129,7 +126,7 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
       os << Spec->getName().str();
       const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
       os << cfg.c_separator;
-      printCTemplateArgs(os, TemplateArgs.asArray(), PP, cfg);
+      printCTemplateArgs(os, TemplateArgs.asArray(), cfg);
     } else if (const auto *ND = dyn_cast<NamespaceDecl>(DC)) {
       if (ND->isAnonymousNamespace()) {
         throw mangling_error("Anonymous namespace");
@@ -178,7 +175,7 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
 
     if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
       os << cfg.c_separator;
-      printCTemplateArgs(os, t->getTemplateArgs().asArray(), PP, cfg);
+      printCTemplateArgs(os, t->getTemplateArgs().asArray(), cfg);
     }
   }
 
@@ -210,8 +207,7 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
     if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
       clang::SmallString<128> Buf;
       llvm::raw_svector_ostream ArgOS(Buf);
-      clang::printTemplateArgumentList(ArgOS, t->getTemplateArgs().asArray(),
-                                       clang::PrintingPolicy(d->getLangOpts()));
+      clang::printTemplateArgumentList(ArgOS, t->getTemplateArgs().asArray(), cfg.PP);
       cpp += ArgOS.str().str();
     }
     ids.emplace(std::make_pair(d, *this));
@@ -227,8 +223,7 @@ Identifier::Identifier(const Type *t, const IdentifierConfig &cfg) {
     *this = types.at(t);
   } else {
     if (const auto *bt = dyn_cast<BuiltinType>(t)) {
-      clang::PrintingPolicy pp = clang::PrintingPolicy(clang::LangOptions());
-      c = cpp = bt->getNameAsCString(pp);
+      c = cpp = bt->getNameAsCString(cfg.PP);
     } else if (const auto *tt = dyn_cast<TagType>(t)) {
       *this = Identifier(tt->getDecl(), cfg);
     } else if (const auto *pt = dyn_cast<PointerType>(t)) {
