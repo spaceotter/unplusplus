@@ -10,9 +10,9 @@
 #include <clang/AST/DeclTemplate.h>
 #include <clang/AST/TemplateBase.h>
 
+#include <iostream>
 #include <sstream>
 #include <unordered_map>
-#include <iostream>
 
 using namespace unplusplus;
 using namespace clang;
@@ -176,7 +176,7 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
     }
 
     const TemplateArgumentList *l = nullptr;
-    if(const auto *t = dyn_cast<ClassTemplateSpecializationDecl>(d))
+    if (const auto *t = dyn_cast<ClassTemplateSpecializationDecl>(d))
       l = &t->getTemplateArgs();
     else if (const auto *t = dyn_cast<FunctionDecl>(d))
       l = t->getTemplateSpecializationArgs();
@@ -190,7 +190,6 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
 }
 
 std::unordered_map<const clang::NamedDecl *, Identifier> Identifier::ids;
-std::unordered_map<const clang::Type *, Identifier> Identifier::types;
 std::unordered_set<std::string> Identifier::dups;
 
 Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
@@ -219,27 +218,52 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   }
 }
 
-Identifier::Identifier(const Type *t, const IdentifierConfig &cfg) {
+Identifier::Identifier(const QualType &qt, const Identifier &name, const IdentifierConfig &cfg) {
+  const Type *t = qt.getTypePtrOrNull();
   if (t == nullptr) {
     throw mangling_error("Null Decl");
   }
   t = t->getUnqualifiedDesugaredType();
-  if (types.count(t)) {
-    *this = types.at(t);
-  } else {
-    if (const auto *bt = dyn_cast<BuiltinType>(t)) {
-      c = cpp = bt->getNameAsCString(cfg.PP);
-    } else if (const auto *tt = dyn_cast<TagType>(t)) {
-      *this = Identifier(tt->getDecl(), cfg);
-    } else if (const auto *pt = dyn_cast<PointerType>(t)) {
-      *this = Identifier(pt->getPointeeType().getTypePtrOrNull(), cfg);
-      c += "*";
-      cpp += "*";
-    } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
-      *this = Identifier(pt->getPointeeType().getTypePtrOrNull(), cfg);
-    } else {
-      throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
+
+  if (const auto *bt = dyn_cast<BuiltinType>(t)) {
+    std::string btn = (bt->getName(cfg.PP) + " ").str();
+    c = btn + name.c;
+    cpp = btn + name.cpp;
+  } else if (const auto *tt = dyn_cast<TagType>(t)) {
+    *this = Identifier(tt->getDecl(), cfg);
+    c += " " + name.c;
+    cpp += " " + name.cpp;
+  } else if (const auto *pt = dyn_cast<PointerType>(t)) {
+    *this = Identifier(pt->getPointeeType(), {"*" + name.c, "*" + name.cpp}, cfg);
+  } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
+    *this = Identifier(pt->getPointeeType(), name, cfg);
+  } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
+    std::string s;
+    llvm::raw_string_ostream ss(s);
+    ss << "[";
+    pt->getSize().print(ss, false);
+    ss << "]";
+    ss.flush();
+    *this = Identifier(pt->getElementType(), {name.c + s, name.cpp + s}, cfg);
+  } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
+    std::stringstream ssc;
+    std::stringstream sscpp;
+    bool first = true;
+    for (size_t i = 0; i < pt->getNumParams(); i++) {
+      Identifier pname("p" + std::to_string(i), cfg);
+      Identifier p(pt->getParamType(i), pname, cfg);
+      if (!first) {
+        ssc << ", ";
+        sscpp << ", ";
+      }
+      ssc << p.c;
+      sscpp << p.cpp;
+      first = false;
     }
-    types.emplace(std::make_pair(t, *this));
+    *this = Identifier(
+        pt->getReturnType(),
+        {"(" + name.c + ")(" + ssc.str() + ")", "(" + name.cpp + ")(" + sscpp.str() + ")"}, cfg);
+  } else {
+    throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
   }
 }

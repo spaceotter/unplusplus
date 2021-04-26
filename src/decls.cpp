@@ -11,20 +11,25 @@
 #include <clang/Basic/SourceManager.h>
 #include <llvm/ADT/TypeSwitch.h>
 
+#include <sstream>
+
 #include "identifier.hpp"
 
 using namespace unplusplus;
 using namespace clang;
 
-void DeclWriterBase::forward(const Type *t) {
+void DeclWriterBase::forward(const QualType &qt) {
+  const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
   if (t == nullptr) {
     return;
   } else if (const auto *tt = dyn_cast<TagType>(t)) {
     _dh.add(tt->getDecl());
   } else if (const auto *pt = dyn_cast<PointerType>(t)) {
-    forward(pt->getPointeeType().getTypePtrOrNull());
+    forward(pt->getPointeeType());
   } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
-    forward(pt->getPointeeType().getTypePtrOrNull());
+    forward(pt->getPointeeType());
+  } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
+    forward(pt->getElementType());
   }
 }
 
@@ -52,15 +57,15 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
 
     // need to add a forward declaration if the target type is a struct - it may not have been
     // declared already.
-    const Type *t = d->getUnderlyingType().getTypePtrOrNull()->getUnqualifiedDesugaredType();
+    const QualType &t = d->getUnderlyingType();
     forward(t);
     try {
-      Identifier ti(t, cfg());
       out.hf() << "#ifdef __cplusplus\n";
       if (_i.cpp == _i.c) out.hf() << "// ";
-      out.hf() << "typedef " << ti.cpp << " " << _i.c << ";\n";
+      Identifier ti(t, Identifier(_i.c, cfg()), cfg());
+      out.hf() << "typedef " << ti.cpp << ";\n";
       out.hf() << "#else\n";
-      out.hf() << "typedef " << ti.c << " " << _i.c << "\n";
+      out.hf() << "typedef " << ti.c << ";\n";
       out.hf() << "#endif // __cplusplus\n\n";
     } catch (const mangling_error err) {
       std::cerr << "Error: " << err.what() << std::endl;
@@ -75,82 +80,80 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
     preamble(out);
 
     try {
-      const Type *rt = d->getReturnType().getTypePtrOrNull()->getUnqualifiedDesugaredType();
-      Identifier ri(rt, cfg());
-      forward(rt);
+      QualType qr = d->getReturnType();
+      forward(qr);
+      bool ret_param = qr->isRecordType() || qr->isReferenceType();
+      if (ret_param) qr = _d->getASTContext().VoidTy;
+
       // avoid returning structs by value?
-      bool ret_param = rt->isRecordType() || rt->isReferenceType();
-      Identifier parent;
-      if (const auto *m = dyn_cast<CXXMethodDecl>(d)) {
-        parent = Identifier(m->getParent(), cfg());
+      QualType qp;
+      const auto *method = dyn_cast<CXXMethodDecl>(d);
+      if (method) {
+        qp = _d->getASTContext().getRecordType(method->getParent());
       }
       bool ctor = dyn_cast<CXXConstructorDecl>(d);
       bool dtor = dyn_cast<CXXDestructorDecl>(d);
-      std::string sig_start;
-      if (ret_param)
-        sig_start = "void";
-      else if (ctor)
-        sig_start = parent.c + "*";
-      else
-        sig_start = ri.c;
-      sig_start += " " + _i.c + "(";
-      out.hf() << sig_start;
-      out.sf() << sig_start;
-      std::vector<std::string> args;
-      args.reserve(d->param_size());
-      bool first = true;
+      if (ctor) qr = _d->getASTContext().getPointerType(qp);
+      std::stringstream proto;
+      std::stringstream call;
+      proto << _i.c << "(";
+      bool firstP = true;
       if (ret_param) {
-        out.hf() << ri.c << "* " << cfg()._return;
-        out.sf() << ri.c << "* " << cfg()._return;
-        first = false;
-      }
-      if (!parent.empty() && !ctor) {
-        out.hf() << parent.c << "* " << cfg()._this;
-        out.sf() << parent.c << "* " << cfg()._this;
-        first = false;
-      }
-      for (const auto &p : d->parameters()) {
-        if (!first) {
-          out.hf() << ", ";
-          out.sf() << ", ";
+        QualType qr = d->getReturnType();
+        if (qr->isRecordType()) {
+          qr = d->getASTContext().getPointerType(qr);
+        } else if (qr->isReferenceType()) {
+          qr = d->getASTContext().getPointerType(qr.getNonReferenceType());
         }
-        const Type *pt = p->getType().getTypePtrOrNull()->getUnqualifiedDesugaredType();
-        bool ptrize = pt->isRecordType() || pt->isReferenceType();
-        Identifier pi(pt, cfg());
-        forward(pt);
-        if (ptrize) pi.c += "*";
-        std::string san = cfg().sanitize(p->getDeclName().getAsString());
-        out.hf() << pi.c << " " << san;
-        out.sf() << pi.c << " " << san;
-        if (ptrize)
-          args.push_back("*" + san);
-        else
-          args.push_back(san);
-        first = false;
+        proto << Identifier(qr, Identifier(cfg()._return, cfg()), cfg()).c;
+        firstP = false;
       }
-      out.hf() << ");\n\n";
-      out.sf() << ") {\n  ";
+      if (method && !ctor) {
+        if (!firstP) proto << ", ";
+        proto << Identifier(_d->getASTContext().getPointerType(qp), Identifier(cfg()._this, cfg()),
+                            cfg())
+                     .c;
+        firstP = false;
+      }
+      bool firstC = true;
+      for (const auto &p : d->parameters()) {
+        if (!firstP) proto << ", ";
+        if (!firstC) call << ", ";
+        QualType pt = p->getType();
+        if (pt->isRecordType()) {
+          pt = _d->getASTContext().getPointerType(pt);
+          call << "*";
+        } else if (pt->isReferenceType()) {
+          pt = _d->getASTContext().getPointerType(pt.getNonReferenceType());
+          call << "*";
+        }
+        Identifier pn(p->getDeclName().getAsString(), cfg());
+        Identifier pi(pt, pn, cfg());
+        forward(pt);
+        proto << pi.c;
+        call << pn.c;
+        firstC = firstP = false;
+      }
+      proto << ")";
+      Identifier signature(qr, Identifier(proto.str()), cfg());
+      out.hf() << signature.c << ";\n\n";
+      out.sf() << signature.c << " {\n  ";
       if (dtor) {
         out.sf() << "delete " << cfg()._this;
       } else {
         if (ret_param)
           out.sf() << "*" << cfg()._return << " = " << _i.cpp;
         else if (ctor)
-          out.sf() << "return new " << parent.cpp;
+          out.sf() << "return new " << Identifier(method->getParent(), cfg()).cpp;
         else {
           out.sf() << "return ";
-          if (parent.empty())
-            out.sf() << _i.cpp;
-          else
+          if (method)
             out.sf() << cfg()._this << "->" << d->getDeclName().getAsString();
+          else
+            out.sf() << _i.cpp;
         }
         out.sf() << "(";
-        first = true;
-        for (const auto &a : args) {
-          if (!first) out.sf() << ", ";
-          out.sf() << a;
-          first = false;
-        }
+        out.sf() << call.str();
         out.sf() << ")";
       }
       out.sf() << ";\n}\n\n";
@@ -188,8 +191,8 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
         name.insert(cfg().root_prefix.size(), cfg().ctor);
         _out.hf() << "// Implicit constructor of " << _i.cpp << "\n";
         _out.sf() << "// Implicit constructor of " << _i.cpp << "\n";
-        _out.hf() << _i.c << "* " << name << "();\n\n";
-        _out.sf() << _i.c << "* " << name << "() {\n";
+        _out.hf() << _i.c << " *" << name << "();\n\n";
+        _out.sf() << _i.c << " *" << name << "() {\n";
         _out.sf() << "  return new " << _i.cpp << "();\n}\n\n";
       }
       if (!_d->hasUserDeclaredDestructor()) {
@@ -197,8 +200,8 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
         name.insert(cfg().root_prefix.size(), cfg().dtor);
         _out.hf() << "// Implicit destructor of " << _i.cpp << "\n";
         _out.sf() << "// Implicit destructor of " << _i.cpp << "\n";
-        _out.hf() << "void " << name << "(" << _i.c << "* " << cfg()._this << ");\n\n";
-        _out.sf() << "void " << name << "(" << _i.c << "* " << cfg()._this << ") {\n";
+        _out.hf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ");\n\n";
+        _out.sf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ") {\n";
         _out.sf() << "  delete " << cfg()._this << ";\n}\n\n";
       }
     } else {
@@ -210,8 +213,7 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
 };
 
 struct FunctionTemplateDeclWriter : public DeclWriter<FunctionTemplateDecl> {
-  FunctionTemplateDeclWriter(const type *d, DeclHandler &dh)
-      : DeclWriter(d, dh) {}
+  FunctionTemplateDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {}
 
   ~FunctionTemplateDeclWriter() {
     for (auto as : _d->specializations()) {

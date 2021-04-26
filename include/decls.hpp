@@ -39,7 +39,7 @@ class DeclWriterBase {
   const IdentifierConfig &cfg() const { return _out.cfg(); }
   const Outputs &out() const { return _out; }
   // Ensure that a type is declared already
-  void forward(const clang::Type *t);
+  void forward(const clang::QualType &t);
 };
 
 }  // namespace unplusplus
