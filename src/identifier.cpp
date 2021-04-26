@@ -47,7 +47,8 @@ std::string IdentifierConfig::sanitize(const std::string &name) const {
 }
 
 // replaces printTemplateArgumentList(os, TemplateArgs.asArray(), P);
-static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args, const IdentifierConfig &cfg) {
+static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args,
+                               const IdentifierConfig &cfg) {
   bool FirstArg = true;
   for (const auto &Arg : Args) {
     // Print the argument into a string.

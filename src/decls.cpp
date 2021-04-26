@@ -171,8 +171,13 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
     out.hf() << "#else\n";
     out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
     out.hf() << "#endif // __cplusplus\n\n";
+    // make sure this gets fully instantiated later
+    if (dyn_cast<ClassTemplateSpecializationDecl>(d) && !_d->hasDefinition()) {
+      _dh.addTemplate(_i.cpp);
+    }
   }
-  virtual ~CXXRecordDeclWriter() {
+  // writer destructors should run after forward declarations are written
+  virtual ~CXXRecordDeclWriter() override {
     if (_d->hasDefinition()) {
       for (const auto method : _d->methods()) {
         _dh.add(method);
@@ -195,54 +200,61 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
         _out.sf() << "void " << name << "(" << _i.c << "* " << cfg()._this << ") {\n";
         _out.sf() << "  delete " << cfg()._this << ";\n}\n\n";
       }
+    } else {
+      std::string warn = "Warning: Class " + _i.cpp + " lacks a definition\n";
+      std::cerr << warn;
+      _out.hf() << "// " << warn << "\n";
     }
   }
 };
 
 void DeclHandler::add(const Decl *d) {
-  if (!_decls.count(d)) {
-    _decls[d] = nullptr;
+  const Decl *pd = d;
+  while (pd != nullptr) {
+    if (_decls.count(pd)) return;
+    pd = pd->getPreviousDecl();
+  }
+  _decls[d] = nullptr;
 
-    if (d->isTemplated()) return;  // ignore unspecialized template decl
+  if (d->isTemplated()) return;  // ignore unspecialized template decl
 
-    SourceManager &SM = d->getASTContext().getSourceManager();
-    FileID FID = SM.getFileID(SM.getFileLoc(d->getLocation()));
-    bool Invalid = false;
-    const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
-    SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
-    // The declaration is from a C header that can just be included by the library
-    if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem) {
-      _out.addCHeader(SEntry.getFile().getName().str());
-      return;
+  SourceManager &SM = d->getASTContext().getSourceManager();
+  FileID FID = SM.getFileID(SM.getFileLoc(d->getLocation()));
+  bool Invalid = false;
+  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
+  SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
+  // The declaration is from a C header that can just be included by the library
+  if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem) {
+    _out.addCHeader(SEntry.getFile().getName().str());
+    return;
+  }
+
+  try {
+    if (const auto *sd = dyn_cast<TypedefDecl>(d))
+      _decls[d].reset(new TypedefDeclWriter(sd, *this));
+    else if (const auto *sd = dyn_cast<CXXRecordDecl>(d))
+      _decls[d].reset(new CXXRecordDeclWriter(sd, *this));
+    else if (const auto *sd = dyn_cast<FunctionDecl>(d))
+      _decls[d].reset(new FunctionDeclWriter(sd, *this));
+    else if (const auto *sd = dyn_cast<FieldDecl>(d))
+      ;  // Ignore, fields are handled in the respective record
+    else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
+      for (const auto ssd : sd->decls()) add(ssd);
+    else if (const auto *sd = dyn_cast<NamedDecl>(d)) {
+      std::cerr << "Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
+                << sd->getQualifiedNameAsString() << std::endl;
+      _out.hf() << "// Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
+                << sd->getQualifiedNameAsString() << "\n\n";
+    } else {
+      std::cerr << "Warning: Ignoring unnamed Decl of kind " << d->getDeclKindName() << "\n";
     }
-
-    try {
-      if (const auto *sd = dyn_cast<TypedefDecl>(d))
-        _decls[d].reset(new TypedefDeclWriter(sd, *this));
-      else if (const auto *sd = dyn_cast<CXXRecordDecl>(d))
-        _decls[d].reset(new CXXRecordDeclWriter(sd, *this));
-      else if (const auto *sd = dyn_cast<FunctionDecl>(d))
-        _decls[d].reset(new FunctionDeclWriter(sd, *this));
-      else if (const auto *sd = dyn_cast<FieldDecl>(d))
-        ;  // Ignore, fields are handled in the respective record
-      else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
-        for (const auto ssd : sd->decls()) add(ssd);
-      else if (const auto *sd = dyn_cast<NamedDecl>(d)) {
-        std::cerr << "Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
-                  << sd->getQualifiedNameAsString() << std::endl;
-        _out.hf() << "// Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
-                  << sd->getQualifiedNameAsString() << "\n\n";
-      } else {
-        std::cerr << "Warning: Ignoring unnamed Decl of kind " << d->getDeclKindName() << "\n";
-      }
-    } catch (const mangling_error err) {
-      std::string name = "<none>";
-      if (const auto *sd = dyn_cast<NamedDecl>(d)) {
-        name = sd->getQualifiedNameAsString();
-      }
-      std::cerr << "Warning: Ignoring " << err.what() << " " << name << " at "
-                << d->getLocation().printToString(d->getASTContext().getSourceManager()) << "\n";
+  } catch (const mangling_error err) {
+    std::string name = "<none>";
+    if (const auto *sd = dyn_cast<NamedDecl>(d)) {
+      name = sd->getQualifiedNameAsString();
     }
+    std::cerr << "Warning: Ignoring " << err.what() << " " << name << " at "
+              << d->getLocation().printToString(d->getASTContext().getSourceManager()) << "\n";
   }
 }
 

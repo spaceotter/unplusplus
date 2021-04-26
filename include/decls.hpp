@@ -15,12 +15,17 @@ typedef std::unordered_map<const clang::Decl *, std::unique_ptr<DeclWriterBase>>
 class DeclHandler {
   Outputs &_out;
   DeclWriterMap _decls;
+  std::stringstream _templates;
 
  public:
   DeclHandler(Outputs &out) : _out(out) {}
   void add(const clang::Decl *d);
   Outputs &out() { return _out; }
   void finish();
+  std::string templates() const { return _templates.str(); }
+  void addTemplate(const std::string &name) {
+    _templates << "extern template class " << name << ";\n";
+  }
 };
 
 class DeclWriterBase {
