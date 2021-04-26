@@ -163,6 +163,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
 
 struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
   CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    if (d->isTemplated()) return;  // ignore unspecialized template decl
     SubOutputs out(_out);
     preamble(out);
     // print only the forward declaration
@@ -208,6 +209,17 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
   }
 };
 
+struct FunctionTemplateDeclWriter : public DeclWriter<FunctionTemplateDecl> {
+  FunctionTemplateDeclWriter(const type *d, DeclHandler &dh)
+      : DeclWriter(d, dh) {}
+
+  ~FunctionTemplateDeclWriter() {
+    for (auto as : _d->specializations()) {
+      _dh.add(as);
+    }
+  }
+};
+
 void DeclHandler::add(const Decl *d) {
   const Decl *pd = d;
   while (pd != nullptr) {
@@ -215,8 +227,6 @@ void DeclHandler::add(const Decl *d) {
     pd = pd->getPreviousDecl();
   }
   _decls[d] = nullptr;
-
-  if (d->isTemplated()) return;  // ignore unspecialized template decl
 
   SourceManager &SM = d->getASTContext().getSourceManager();
   FileID FID = SM.getFileID(SM.getFileLoc(d->getLocation()));
@@ -236,8 +246,12 @@ void DeclHandler::add(const Decl *d) {
       _decls[d].reset(new CXXRecordDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<FunctionDecl>(d))
       _decls[d].reset(new FunctionDeclWriter(sd, *this));
+    else if (const auto *sd = dyn_cast<FunctionTemplateDecl>(d))
+      _decls[d].reset(new FunctionTemplateDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<FieldDecl>(d))
       ;  // Ignore, fields are handled in the respective record
+    else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))
+      ;  // Ignore, the specializations are picked up elsewhere
     else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
       for (const auto ssd : sd->decls()) add(ssd);
     else if (const auto *sd = dyn_cast<NamedDecl>(d)) {

@@ -12,6 +12,7 @@
 
 #include <sstream>
 #include <unordered_map>
+#include <iostream>
 
 using namespace unplusplus;
 using namespace clang;
@@ -159,7 +160,7 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
   }
 
   if (!ctor && !dtor) {
-    os << cfg.c_separator;
+    if (!first) os << cfg.c_separator;
     if (d->getDeclName())
       os << d->getDeclName().getAsString();
     else {
@@ -174,9 +175,14 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
         os << NameBuffer.c_str();
     }
 
-    if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
+    const TemplateArgumentList *l = nullptr;
+    if(const auto *t = dyn_cast<ClassTemplateSpecializationDecl>(d))
+      l = &t->getTemplateArgs();
+    else if (const auto *t = dyn_cast<FunctionDecl>(d))
+      l = t->getTemplateSpecializationArgs();
+    if (l != nullptr) {
       os << cfg.c_separator;
-      printCTemplateArgs(os, t->getTemplateArgs().asArray(), cfg);
+      printCTemplateArgs(os, l->asArray(), cfg);
     }
   }
 
@@ -204,13 +210,11 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
     }
     dups.emplace(c);
 
-    cpp = d->getQualifiedNameAsString();
-    if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
-      clang::SmallString<128> Buf;
-      llvm::raw_svector_ostream ArgOS(Buf);
-      clang::printTemplateArgumentList(ArgOS, t->getTemplateArgs().asArray(), cfg.PP);
-      cpp += ArgOS.str().str();
-    }
+    clang::SmallString<128> Buf;
+    llvm::raw_svector_ostream ArgOS(Buf);
+    d->getNameForDiagnostic(ArgOS, cfg.PP, true);
+    cpp = ArgOS.str().str();
+
     ids.emplace(std::make_pair(d, *this));
   }
 }
