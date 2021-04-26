@@ -275,7 +275,15 @@ void DeclHandler::add(const Decl *d) {
 }
 
 void DeclHandler::finish() {
-  for (auto &p : _decls) {
-    p.second.reset();
+  // destructing the writers may cause more decls to be processed.
+  bool any = true;
+  while (any) {
+    any = false;
+    for (auto &p : _decls) {
+      if (p.second) {
+        p.second.reset();
+        any = true;
+      }
+    }
   }
 }

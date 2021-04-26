@@ -1,10 +1,5 @@
 #pragma once
 
-#include <math.h>
-#include <stdint.h>
-
-extern uint8_t blah;
-
 namespace geom {
 template <class T, int N>
 class Point {

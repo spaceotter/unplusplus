@@ -16,7 +16,7 @@ FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sourc
       _sf(path(stem).concat(".cpp")) {
   _macroname = _cfg.sanitize(stem.filename().string());
   _hf << "/*\n";
-  _hf << " * This header file was generated automatically by c2ffi.\n";
+  _hf << " * This header file was generated automatically by unplusplus.\n";
   _hf << " */\n";
   _hf << "#ifndef " << _macroname << "_CIFGEN_H\n";
   _hf << "#define " << _macroname << "_CIFGEN_H\n";
@@ -28,7 +28,7 @@ FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sourc
   _hf << "#endif // __cplusplus\n\n";
 
   _sf << "/*\n";
-  _sf << " * This source file was generated automatically by c2ffi.\n";
+  _sf << " * This source file was generated automatically by unplusplus.\n";
   _sf << " */\n";
   _sf << "#include \"" << (std::string)_outheader << "\"\n\n";
 }

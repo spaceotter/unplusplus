@@ -10,9 +10,9 @@ mkdir -p "$testdir/out"
 cd "$testdir"
 
 # TEST 2
-g++ "test2.cpp" -c -o "out/test2.o"
-"$UPP" "test2.hpp" -m -T -o "out/clib-test2" -I "."
-g++ out/clib-test2.cpp -c -o out/clib-test2.o -I "."
-gcc main2.c -c -o "out/main2.o" -I "out"
-g++ out/test2.o out/clib-test2.o out/main2.o -o out/test2
-./out/test2
+clang++ "geom.cpp" -c -o "out/geom.o"
+"$UPP" "geom.hpp" -o "out/clib-geom"
+clang++ out/clib-geom.cpp -c -o out/clib-geom.o -I "."
+clang geom_main.c -c -o "out/main.o" -I "out"
+clang++ out/geom.o out/clib-geom.o out/main.o -o out/geom
+./out/geom
