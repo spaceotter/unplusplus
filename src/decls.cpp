@@ -16,18 +16,25 @@
 using namespace unplusplus;
 using namespace clang;
 
+void DeclWriterBase::forward(const Type *t) {
+  if (t == nullptr) {
+    return;
+  } else if (const auto *tt = dyn_cast<TagType>(t)) {
+    _dh.add(tt->getDecl());
+  } else if (const auto *pt = dyn_cast<PointerType>(t)) {
+    forward(pt->getPointeeType().getTypePtrOrNull());
+  } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
+    forward(pt->getPointeeType().getTypePtrOrNull());
+  }
+}
+
 template <class T>
-struct DeclWriter {
+struct DeclWriter : public DeclWriterBase {
   typedef T type;
   const T *_d;
-  DeclHandler &_dh;
-  Outputs &_out;
   const Identifier _i;
 
-  DeclWriter(const T *d, DeclHandler &dh) : _d(d), _dh(dh), _out(dh.out()), _i(d, _out.cfg()) {}
-  ~DeclWriter() {}
-
-  const IdentifierConfig &cfg() const { return _out.cfg(); }
+  DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _out.cfg()) {}
 
   void preamble(Outputs &out) {
     std::string location = _d->getLocation().printToString(_d->getASTContext().getSourceManager());
@@ -35,19 +42,6 @@ struct DeclWriter {
     out.hf() << "// C++ name: " << _i.cpp << "\n";
     out.sf() << "// location: " << location << "\n";
     out.sf() << "// C++ name: " << _i.cpp << "\n";
-  }
-
-  // Ensure that the type is declared already
-  void forward(const Type *t) {
-    if (t == nullptr) {
-      return;
-    } else if (const auto *tt = dyn_cast<TagType>(t)) {
-      _dh.add(tt->getDecl());
-    } else if (const auto *pt = dyn_cast<PointerType>(t)) {
-      forward(pt->getPointeeType().getTypePtrOrNull());
-    } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
-      forward(pt->getPointeeType().getTypePtrOrNull());
-    }
   }
 };
 
@@ -73,7 +67,6 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
       out.hf() << "// ERROR: " << err.what() << "\n\n";
     }
   }
-  ~TypedefDeclWriter() {}
 };
 
 struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
@@ -179,12 +172,12 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
     out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
     out.hf() << "#endif // __cplusplus\n\n";
   }
-  ~CXXRecordDeclWriter() {
+  virtual ~CXXRecordDeclWriter() {
     if (_d->hasDefinition()) {
       for (const auto method : _d->methods()) {
         _dh.add(method);
       }
-      if (!_d->hasUserDeclaredConstructor()) {
+      if (_d->hasDefaultConstructor() && !_d->hasUserProvidedDefaultConstructor()) {
         std::string name = _i.c;
         name.insert(cfg().root_prefix.size(), cfg().ctor);
         _out.hf() << "// Implicit constructor of " << _i.cpp << "\n";
@@ -208,7 +201,7 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
 
 void DeclHandler::add(const Decl *d) {
   if (!_decls.count(d)) {
-    _decls.emplace(d);
+    _decls[d] = nullptr;
 
     if (d->isTemplated()) return;  // ignore unspecialized template decl
 
@@ -225,11 +218,11 @@ void DeclHandler::add(const Decl *d) {
 
     try {
       if (const auto *sd = dyn_cast<TypedefDecl>(d))
-        TypedefDeclWriter(sd, *this);
+        _decls[d].reset(new TypedefDeclWriter(sd, *this));
       else if (const auto *sd = dyn_cast<CXXRecordDecl>(d))
-        CXXRecordDeclWriter(sd, *this);
+        _decls[d].reset(new CXXRecordDeclWriter(sd, *this));
       else if (const auto *sd = dyn_cast<FunctionDecl>(d))
-        FunctionDeclWriter(sd, *this);
+        _decls[d].reset(new FunctionDeclWriter(sd, *this));
       else if (const auto *sd = dyn_cast<FieldDecl>(d))
         ;  // Ignore, fields are handled in the respective record
       else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
@@ -250,5 +243,11 @@ void DeclHandler::add(const Decl *d) {
       std::cerr << "Warning: Ignoring " << err.what() << " " << name << " at "
                 << d->getLocation().printToString(d->getASTContext().getSourceManager()) << "\n";
     }
+  }
+}
+
+void DeclHandler::finish() {
+  for (auto &p : _decls) {
+    p.second.reset();
   }
 }

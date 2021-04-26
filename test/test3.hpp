@@ -10,4 +10,4 @@ typedef A::Foo<int> Bar;
 typedef A::Foo<float> Barf;
 }  // namespace B
 
-extern template class A::Foo<double>;
+extern template class A::Foo<float>;

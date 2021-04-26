@@ -27,6 +27,10 @@ class UppASTConsumer : public ASTConsumer {
     return true;
   }
 
+  void HandleTranslationUnit(ASTContext &Ctx) override {
+    _dh.finish();
+  }
+
   bool shouldSkipFunctionBody(Decl *D) override { return true; }
 };
 
