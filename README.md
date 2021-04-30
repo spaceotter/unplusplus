@@ -34,6 +34,7 @@ to avoid issues with system header or ABI incompatibility.
   for the best compatibility with FFI.
 * Returning structs/classes by value is changed to supplying a pointer argument for the output to be
   assigned.
+* Functions declarations with arguments without a provided name are given generated ones.
 
 ## Limitations
 

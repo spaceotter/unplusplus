@@ -116,7 +116,8 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
         firstP = false;
       }
       bool firstC = true;
-      for (const auto &p : d->parameters()) {
+      for (size_t i = 0; i < d->getNumParams(); i++) {
+        const auto &p = d->getParamDecl(i);
         if (!firstP) proto << ", ";
         if (!firstC) call << ", ";
         QualType pt = p->getType();
@@ -127,7 +128,10 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
           pt = _d->getASTContext().getPointerType(pt.getNonReferenceType());
           call << "*";
         }
-        Identifier pn(p->getDeclName().getAsString(), cfg());
+        std::string pname = p->getDeclName().getAsString();
+        if (pname.empty())
+          pname = cfg().root_prefix + "arg_" + std::to_string(i);
+        Identifier pn(pname, cfg());
         Identifier pi(pt, pn, cfg());
         forward(pt);
         proto << pi.c;
@@ -140,18 +144,22 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
       if (d->getDeclContext()->isExternCContext()) {
         out.sf() << "// defined externally\n";
       } else {
+        std::string fname = d->getDeclName().getAsString();
         out.sf() << signature.c << " {\n  ";
         if (dtor) {
           out.sf() << "delete " << cfg()._this;
         } else {
-          if (ret_param)
-            out.sf() << "*" << cfg()._return << " = " << _i.cpp;
-          else if (ctor)
+          if (ret_param) {
+            out.sf() << "*" << cfg()._return << " = ";
+            if (method)
+              out.sf() << cfg()._this << "->" << fname;
+            else out.sf() << _i.cpp;
+          } else if (ctor)
             out.sf() << "return new " << Identifier(method->getParent(), cfg()).cpp;
           else {
             out.sf() << "return ";
             if (method)
-              out.sf() << cfg()._this << "->" << d->getDeclName().getAsString();
+              out.sf() << cfg()._this << "->" << fname;
             else
               out.sf() << _i.cpp;
           }
@@ -248,6 +256,10 @@ void DeclHandler::add(const Decl *d) {
     _out.addCHeader(SEntry.getFile().getName().str());
     return;
   }
+
+  if (const auto *nd = dyn_cast<NamedDecl>(d))
+    if (isLibraryInternal(nd))
+      return;
 
   try {
     if (const auto *sd = dyn_cast<TypedefDecl>(d))

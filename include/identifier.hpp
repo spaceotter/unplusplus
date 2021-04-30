@@ -47,4 +47,6 @@ struct Identifier {
   std::string c;    // a name-mangled identifier for C
   std::string cpp;  // the fully qualified C++ name
 };
+
+bool isLibraryInternal(const clang::NamedDecl *d);
 }  // namespace unplusplus

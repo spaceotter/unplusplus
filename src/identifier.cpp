@@ -99,23 +99,6 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
     Ctx = Ctx->getParent();
   }
 
-  // FIXME: A hack to filter out internal-only parts of the standard library
-  if (!Contexts.empty()) {
-    if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 1))) {
-      std::string root = ND->getDeclName().getAsString();
-      if (root == "__gnu_cxx") {
-        throw mangling_error("Compiler internal");
-      } else if (root == "std" && Contexts.size() > 1) {
-        if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 2))) {
-          std::string root = ND->getDeclName().getAsString();
-          if (root[0] == '_' && root[1] == '_') {
-            throw mangling_error("Compiler internal");
-          }
-        }
-      }
-    }
-  }
-
   bool first = true;
   for (const DeclContext *DC : llvm::reverse(Contexts)) {
     if (!first) os << cfg.c_separator;
@@ -233,7 +216,10 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   t = t->getUnqualifiedDesugaredType();
 
   if (const auto *bt = dyn_cast<BuiltinType>(t)) {
-    if (qt->isNullPtrType()) {
+    if (qt->isBooleanType()) {
+      c = "bool " + name.c;
+      cpp = "bool " + name.cpp;
+    } else if (qt->isNullPtrType()) {
       c = "void * " + name.c;
       cpp = "std::nullptr_t " + name.cpp;
     } else {
@@ -278,4 +264,36 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   } else {
     throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
   }
+}
+
+bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {
+  const DeclContext *Ctx = d->getDeclContext();
+  SmallVector<const DeclContext *, 8> Contexts;
+
+  // Collect named contexts.
+  while (Ctx) {
+    if (isa<NamedDecl>(Ctx)) Contexts.push_back(Ctx);
+    Ctx = Ctx->getParent();
+  }
+
+  // FIXME: A hack to filter out internal-only parts of the standard library
+  if (!Contexts.empty()) {
+    if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 1))) {
+      std::string root = ND->getDeclName().getAsString();
+      if (root == "__gnu_cxx") {
+        return true;
+      } else if (root == "__cxxabiv1") {
+        return true;
+      } if (root == "std" && Contexts.size() > 1) {
+        if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 2))) {
+          std::string root = ND->getDeclName().getAsString();
+          if (root[0] == '_' && root[1] == '_') {
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  return false;
 }
