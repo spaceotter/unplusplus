@@ -2,9 +2,9 @@ namespace A {
 struct Foo {
   Foo(long c);
   ~Foo();
-  int f(Foo b);
+  int f(Foo b) const;
 };
 struct Bar {
-  int g(Foo b);
+  int g(const Foo b);
 };
 }  // namespace A

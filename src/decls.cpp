@@ -225,10 +225,14 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
   // writer destructors should run after forward declarations are written
   virtual ~CXXRecordDeclWriter() override {
     if (_d->hasDefinition()) {
+      bool any_ctor = false;
+      bool any_dtor = false;
       for (const auto method : _d->methods()) {
         _dh.add(method);
+        if(isa<CXXConstructorDecl>(method)) any_ctor = true;
+        if(isa<CXXDestructorDecl>(method)) any_dtor = true;
       }
-      if (_d->hasDefaultConstructor() && !_d->hasUserProvidedDefaultConstructor()) {
+      if (!any_ctor && _d->hasDefaultConstructor()) {
         std::string name = _i.c;
         name.insert(cfg().root_prefix.size(), cfg().ctor);
         _out.hf() << "// Implicit constructor of " << _i.cpp << "\n";
@@ -237,7 +241,7 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
         _out.sf() << _i.c << " *" << name << "() {\n";
         _out.sf() << "  return new " << _i.cpp << "();\n}\n\n";
       }
-      if (!_d->hasUserDeclaredDestructor()) {
+      if (!any_dtor) {
         std::string name = _i.c;
         name.insert(cfg().root_prefix.size(), cfg().dtor);
         _out.hf() << "// Implicit destructor of " << _i.cpp << "\n";
