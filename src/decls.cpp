@@ -116,6 +116,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
       if (method) {
         qp = _d->getASTContext().getRecordType(method->getParent());
         _dh.forward(qp);
+        if (method->isConst()) qp.addConst();
       }
       bool ctor = dyn_cast<CXXConstructorDecl>(d);
       bool dtor = dyn_cast<CXXDestructorDecl>(d);
@@ -125,13 +126,16 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
       proto << _i.c << "(";
       bool firstP = true;
       if (ret_param) {
-        QualType qr = d->getReturnType();
-        if (qr->isRecordType()) {
-          qr = d->getASTContext().getPointerType(qr);
-        } else if (qr->isReferenceType()) {
-          qr = d->getASTContext().getPointerType(qr.getNonReferenceType());
+        QualType retParamT = d->getReturnType().getDesugaredType(d->getASTContext());
+        retParamT.removeLocalConst();
+        if (retParamT->isRecordType()) {
+          retParamT = d->getASTContext().getPointerType(retParamT);
+        } else if (retParamT->isReferenceType()) {
+          retParamT = retParamT.getNonReferenceType();
+          retParamT.removeLocalConst();
+          retParamT = d->getASTContext().getPointerType(retParamT);
         }
-        proto << Identifier(qr, Identifier(cfg()._return, cfg()), cfg()).c;
+        proto << Identifier(retParamT, Identifier(cfg()._return, cfg()), cfg()).c;
         firstP = false;
       }
       if (method && !ctor) {

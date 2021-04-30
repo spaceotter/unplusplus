@@ -261,6 +261,11 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   } else {
     throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
   }
+
+  if (qt.isLocalConstQualified()) {
+    c = "const " + c;
+    cpp = "const " + cpp;
+  }
 }
 
 bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {
