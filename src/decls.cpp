@@ -159,8 +159,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
           call << "*";
         }
         std::string pname = p->getDeclName().getAsString();
-        if (pname.empty())
-          pname = cfg().root_prefix + "arg_" + std::to_string(i);
+        if (pname.empty()) pname = cfg().root_prefix + "arg_" + std::to_string(i);
         Identifier pn(pname, cfg());
         Identifier pi(pt, pn, cfg());
         _dh.forward(pt);
@@ -183,7 +182,8 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
             out.sf() << "*" << cfg()._return << " = ";
             if (method)
               out.sf() << cfg()._this << "->" << fname;
-            else out.sf() << _i.cpp;
+            else
+              out.sf() << _i.cpp;
           } else if (ctor)
             out.sf() << "return new " << Identifier(method->getParent(), cfg()).cpp;
           else {
@@ -288,8 +288,7 @@ void DeclHandler::add(const Decl *d) {
   }
 
   if (const auto *nd = dyn_cast<NamedDecl>(d))
-    if (isLibraryInternal(nd))
-      return;
+    if (isLibraryInternal(nd)) return;
 
   try {
     if (const auto *sd = dyn_cast<TypedefDecl>(d))

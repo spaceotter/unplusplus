@@ -186,7 +186,8 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
     if (d->getDeclContext()->isExternCContext()) {
       c = d->getDeclName().getAsString();
       if (dups.count(c)) {
-        throw mangling_error("An automatically generated symbol conflicts with a C symbol `" + c + "`");
+        throw mangling_error("An automatically generated symbol conflicts with a C symbol `" + c +
+                             "`");
       }
     } else {
       c = getCName(d, cfg);
@@ -286,7 +287,8 @@ bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {
         return true;
       } else if (root == "__cxxabiv1") {
         return true;
-      } if (root == "std" && Contexts.size() > 1) {
+      }
+      if (root == "std" && Contexts.size() > 1) {
         if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 2))) {
           std::string root = ND->getDeclName().getAsString();
           if (root[0] == '_' && root[1] == '_') {
