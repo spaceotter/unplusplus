@@ -137,26 +137,30 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
       proto << ")";
       Identifier signature(qr, Identifier(proto.str()), cfg());
       out.hf() << signature.c << ";\n\n";
-      out.sf() << signature.c << " {\n  ";
-      if (dtor) {
-        out.sf() << "delete " << cfg()._this;
+      if (d->getDeclContext()->isExternCContext()) {
+        out.sf() << "// defined externally\n";
       } else {
-        if (ret_param)
-          out.sf() << "*" << cfg()._return << " = " << _i.cpp;
-        else if (ctor)
-          out.sf() << "return new " << Identifier(method->getParent(), cfg()).cpp;
-        else {
-          out.sf() << "return ";
-          if (method)
-            out.sf() << cfg()._this << "->" << d->getDeclName().getAsString();
-          else
-            out.sf() << _i.cpp;
+        out.sf() << signature.c << " {\n  ";
+        if (dtor) {
+          out.sf() << "delete " << cfg()._this;
+        } else {
+          if (ret_param)
+            out.sf() << "*" << cfg()._return << " = " << _i.cpp;
+          else if (ctor)
+            out.sf() << "return new " << Identifier(method->getParent(), cfg()).cpp;
+          else {
+            out.sf() << "return ";
+            if (method)
+              out.sf() << cfg()._this << "->" << d->getDeclName().getAsString();
+            else
+              out.sf() << _i.cpp;
+          }
+          out.sf() << "(";
+          out.sf() << call.str();
+          out.sf() << ")";
         }
-        out.sf() << "(";
-        out.sf() << call.str();
-        out.sf() << ")";
+        out.sf() << ";\n}\n\n";
       }
-      out.sf() << ";\n}\n\n";
     } catch (const mangling_error err) {
       std::cerr << "Error: " << err.what() << std::endl;
       out.hf() << "// ERROR: " << err.what() << "\n\n";

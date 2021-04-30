@@ -200,14 +200,21 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
     c = ids.at(d).c;
     cpp = ids.at(d).cpp;
   } else {
-    c = getCName(d, cfg);
-    if (dups.count(c)) {
-      unsigned cnt = 2;
-      std::string nc;
-      while (dups.count(nc = c + "_" + std::to_string(cnt))) cnt++;
-      c = nc;
+    if (d->getDeclContext()->isExternCContext()) {
+      c = d->getDeclName().getAsString();
+      if (dups.count(c)) {
+        throw mangling_error("An automatically generated symbol conflicts with a C symbol `" + c + "`");
+      }
+    } else {
+      c = getCName(d, cfg);
+      if (dups.count(c)) {
+        unsigned cnt = 2;
+        std::string nc;
+        while (dups.count(nc = c + "_" + std::to_string(cnt))) cnt++;
+        c = nc;
+      }
+      dups.emplace(c);
     }
-    dups.emplace(c);
 
     clang::SmallString<128> Buf;
     llvm::raw_svector_ostream ArgOS(Buf);
