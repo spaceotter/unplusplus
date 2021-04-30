@@ -223,6 +223,10 @@ struct FunctionTemplateDeclWriter : public DeclWriter<FunctionTemplateDecl> {
 };
 
 void DeclHandler::add(const Decl *d) {
+  // don't generate for redundant decls, such as those created by the "using" statement
+  if (const auto *nd = dyn_cast<NamedDecl>(d)) d = (const Decl *)nd->getUnderlyingDecl();
+
+  // skip if this or any previous declaration of the same thing was already processed
   const Decl *pd = d;
   while (pd != nullptr) {
     if (_decls.count(pd)) return;
@@ -255,6 +259,8 @@ void DeclHandler::add(const Decl *d) {
     else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))
       ;  // Ignore, the specializations are picked up elsewhere
     else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
+      for (const auto ssd : sd->decls()) add(ssd);
+    else if (const auto *sd = dyn_cast<LinkageSpecDecl>(d))
       for (const auto ssd : sd->decls()) add(ssd);
     else if (const auto *sd = dyn_cast<NamedDecl>(d)) {
       std::cerr << "Warning: Unknown Decl kind " << sd->getDeclKindName() << " "

@@ -52,5 +52,6 @@ int main(int argc, const char **argv) {
   DeclHandler dh(temp);
   IndexActionFactory Factory(dh);
   int ret = Tool.run(&Factory);
+  fout.finalize();
   return ret;
 }

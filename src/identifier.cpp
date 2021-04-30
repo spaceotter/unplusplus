@@ -226,9 +226,14 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   t = t->getUnqualifiedDesugaredType();
 
   if (const auto *bt = dyn_cast<BuiltinType>(t)) {
-    std::string btn = (bt->getName(cfg.PP) + " ").str();
-    c = btn + name.c;
-    cpp = btn + name.cpp;
+    if (qt->isNullPtrType()) {
+      c = "void * " + name.c;
+      cpp = "std::nullptr_t " + name.cpp;
+    } else {
+      std::string btn = (bt->getName(cfg.PP) + " ").str();
+      c = btn + name.c;
+      cpp = btn + name.cpp;
+    }
   } else if (const auto *tt = dyn_cast<TagType>(t)) {
     *this = Identifier(tt->getDecl(), cfg);
     c += " " + name.c;
