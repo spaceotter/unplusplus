@@ -1,7 +1,10 @@
 # unplusplus
 
 This project aims to generate from a C++ header a C++ library containing stubs with C linkage that
-allow basic usage of C++ features from C.
+allow basic usage of C++ features from C. The expected use case is to allow a C-only foreign
+function interface (FFI) to use a C++ library.
+
+The project is not ready for general use yet.
 
 ## Workflow:
 1. Build the target C++ library.
