@@ -287,6 +287,8 @@ void DeclHandler::add(const Decl *d) {
       for (const auto ssd : sd->decls()) add(ssd);
     else if (const auto *sd = dyn_cast<LinkageSpecDecl>(d))
       for (const auto ssd : sd->decls()) add(ssd);
+    else if (const auto *sd = dyn_cast<UsingDirectiveDecl>(d))
+      add(sd->getNominatedNamespace());
     else if (const auto *sd = dyn_cast<NamedDecl>(d)) {
       std::cerr << "Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
                 << sd->getQualifiedNameAsString() << std::endl;
