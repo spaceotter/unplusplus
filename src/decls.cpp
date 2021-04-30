@@ -18,18 +18,26 @@
 using namespace unplusplus;
 using namespace clang;
 
-void DeclWriterBase::forward(const QualType &qt) {
+void DeclHandler::forward(const QualType &qt) {
   const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
   if (t == nullptr) {
     return;
   } else if (const auto *tt = dyn_cast<TagType>(t)) {
-    _dh.add(tt->getDecl());
+    add(tt->getDecl());
   } else if (const auto *pt = dyn_cast<PointerType>(t)) {
     forward(pt->getPointeeType());
   } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
     forward(pt->getPointeeType());
   } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
     forward(pt->getElementType());
+  } else if (qt->isBuiltinType()) {
+    return;
+  } else {
+    std::string s;
+    llvm::raw_string_ostream ss(s);
+    qt.print(ss, cfg().PP);
+    ss.flush();
+    std::cerr << "Error: couldn't ensure that type `" << ss.str() << "` is declared." << std::endl;
   }
 }
 
@@ -58,7 +66,7 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     // need to add a forward declaration if the target type is a struct - it may not have been
     // declared already.
     const QualType &t = d->getUnderlyingType();
-    forward(t);
+    _dh.forward(t);
     try {
       out.hf() << "#ifdef __cplusplus\n";
       if (_i.cpp == _i.c) out.hf() << "// ";
@@ -81,7 +89,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
 
     try {
       QualType qr = d->getReturnType();
-      forward(qr);
+      _dh.forward(qr);
       bool ret_param = qr->isRecordType() || qr->isReferenceType();
       if (ret_param) qr = _d->getASTContext().VoidTy;
 
@@ -90,6 +98,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
       const auto *method = dyn_cast<CXXMethodDecl>(d);
       if (method) {
         qp = _d->getASTContext().getRecordType(method->getParent());
+        _dh.forward(qp);
       }
       bool ctor = dyn_cast<CXXConstructorDecl>(d);
       bool dtor = dyn_cast<CXXDestructorDecl>(d);
@@ -133,7 +142,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
           pname = cfg().root_prefix + "arg_" + std::to_string(i);
         Identifier pn(pname, cfg());
         Identifier pi(pt, pn, cfg());
-        forward(pt);
+        _dh.forward(pt);
         proto << pi.c;
         call << pn.c;
         firstC = firstP = false;

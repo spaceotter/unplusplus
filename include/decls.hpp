@@ -26,6 +26,9 @@ class DeclHandler {
   void addTemplate(const std::string &name) {
     _templates << "extern template class " << name << ";\n";
   }
+  const IdentifierConfig &cfg() const { return _out.cfg(); }
+  // Ensure that a type is declared already
+  void forward(const clang::QualType &t);
 };
 
 class DeclWriterBase {
@@ -38,8 +41,6 @@ class DeclWriterBase {
   virtual ~DeclWriterBase() {}
   const IdentifierConfig &cfg() const { return _out.cfg(); }
   const Outputs &out() const { return _out; }
-  // Ensure that a type is declared already
-  void forward(const clang::QualType &t);
 };
 
 }  // namespace unplusplus
