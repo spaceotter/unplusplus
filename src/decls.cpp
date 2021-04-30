@@ -58,6 +58,15 @@ struct DeclWriter : public DeclWriterBase {
   }
 };
 
+static bool isAnonStruct(const QualType &qt) {
+  const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
+  if (const auto *tt = dyn_cast<TagType>(t)) {
+    TagDecl *td = tt->getDecl();
+    return td->isEmbeddedInDeclarator();
+  }
+  return false;
+}
+
 struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
   TypedefDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     SubOutputs out(_out);
@@ -66,15 +75,23 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     // need to add a forward declaration if the target type is a struct - it may not have been
     // declared already.
     const QualType &t = d->getUnderlyingType();
-    _dh.forward(t);
+    bool anon = isAnonStruct(t);
     try {
-      out.hf() << "#ifdef __cplusplus\n";
-      if (_i.cpp == _i.c) out.hf() << "// ";
-      Identifier ti(t, Identifier(_i.c, cfg()), cfg());
-      out.hf() << "typedef " << ti.cpp << ";\n";
-      out.hf() << "#else\n";
-      out.hf() << "typedef " << ti.c << ";\n";
-      out.hf() << "#endif // __cplusplus\n\n";
+      if (anon) {
+        out.hf() << "#ifdef __cplusplus\n";
+        out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
+        out.hf() << "#else\n";
+        out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
+        out.hf() << "#endif // __cplusplus\n\n";
+      } else {
+        _dh.forward(t);
+        Identifier ti(t, Identifier(_i.c, cfg()), cfg());
+        out.hf() << "#ifdef __cplusplus\n";
+        out.hf() << "typedef " << ti.cpp << ";\n";
+        out.hf() << "#else\n";
+        out.hf() << "typedef " << ti.c << ";\n";
+        out.hf() << "#endif // __cplusplus\n\n";
+      }
     } catch (const mangling_error err) {
       std::cerr << "Error: " << err.what() << std::endl;
       out.hf() << "// ERROR: " << err.what() << "\n\n";
