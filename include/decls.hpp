@@ -16,9 +16,10 @@ class DeclHandler {
   Outputs &_out;
   DeclWriterMap _decls;
   std::stringstream _templates;
+  IdentifierConfig _cfg;
 
  public:
-  DeclHandler(Outputs &out) : _out(out) {}
+  DeclHandler(Outputs &out, const clang::LangOptions &_opts) : _out(out), _cfg(_opts) {}
   void add(const clang::Decl *d);
   Outputs &out() { return _out; }
   void finish();
@@ -26,7 +27,7 @@ class DeclHandler {
   void addTemplate(const std::string &name) {
     _templates << "extern template class " << name << ";\n";
   }
-  const IdentifierConfig &cfg() const { return _out.cfg(); }
+  const IdentifierConfig &cfg() const { return _cfg; }
   // Ensure that a type is declared already
   void forward(const clang::QualType &t);
 };
@@ -39,7 +40,7 @@ class DeclWriterBase {
  public:
   DeclWriterBase(DeclHandler &dh) : _dh(dh), _out(dh.out()) {}
   virtual ~DeclWriterBase() {}
-  const IdentifierConfig &cfg() const { return _out.cfg(); }
+  const IdentifierConfig &cfg() const { return _dh.cfg(); }
   const Outputs &out() const { return _out; }
 };
 

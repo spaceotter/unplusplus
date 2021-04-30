@@ -18,6 +18,7 @@ struct mangling_error : public std::runtime_error {
 };
 
 struct IdentifierConfig {
+  IdentifierConfig(const clang::LangOptions &opts) : PP(opts) {}
   // these determine how flattened C names are assembled
   std::string root_prefix = "upp_";
   std::string c_separator = "_";
@@ -26,7 +27,7 @@ struct IdentifierConfig {
   std::string _struct = "_s_";
   std::string dtor = "del_";
   std::string ctor = "new_";
-  clang::PrintingPolicy PP = {clang::LangOptions()};
+  clang::PrintingPolicy PP;
   std::string sanitize(const std::string &name) const;
 };
 

@@ -46,11 +46,9 @@ int main(int argc, const char **argv) {
     stem = path(OutStem.getValue());
   }
   std::cout << "Writing library to: " << stem.string() << ".*" << std::endl;
-  IdentifierConfig icfg;
-  FileOutputs fout(stem, sources, icfg);
+  FileOutputs fout(stem, sources);
   SubOutputs temp(fout);
-  DeclHandler dh(temp);
-  IndexActionFactory Factory(dh);
+  IndexActionFactory Factory(temp);
   int ret = Tool.run(&Factory);
   fout.finalize();
   return ret;

@@ -35,25 +35,27 @@ class UppASTConsumer : public ASTConsumer {
 };
 
 class UppAction : public ASTFrontendAction {
-  DeclHandler &_dh;
+  Outputs &_out;
+  std::unique_ptr<DeclHandler> _dh;
 
  public:
-  UppAction(DeclHandler &dh) : _dh(dh) {}
+  UppAction(Outputs &out) : _out(out) {}
   virtual void ExecuteAction() override {
     ASTFrontendAction::ExecuteAction();
     CompilerInstance &CI = getCompilerInstance();
-    std::string T = _dh.templates();
+    std::string T = _dh->templates();
     IncrementalParseAST(CI.getSema(), T, "<templates>", CI.getFrontendOpts().ShowStats,
                         CI.getFrontendOpts().SkipFunctionBodies);
-    _dh.finish();
+    _dh->finish();
   }
 
  protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef InFile) override {
-    return std::make_unique<UppASTConsumer>(_dh);
+    _dh = std::make_unique<DeclHandler>(_out, CI.getLangOpts());
+    return std::make_unique<UppASTConsumer>(*_dh);
   }
 };
 
 std::unique_ptr<clang::FrontendAction> IndexActionFactory::create() {
-  return std::make_unique<UppAction>(_dh);
+  return std::make_unique<UppAction>(_out);
 }

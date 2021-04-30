@@ -47,7 +47,7 @@ struct DeclWriter : public DeclWriterBase {
   const T *_d;
   const Identifier _i;
 
-  DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _out.cfg()) {}
+  DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _dh.cfg()) {}
 
   void preamble(Outputs &out) {
     std::string location = _d->getLocation().printToString(_d->getASTContext().getSourceManager());

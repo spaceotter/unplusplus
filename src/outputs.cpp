@@ -8,13 +8,20 @@
 using namespace unplusplus;
 using std::filesystem::path;
 
-FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sources,
-                         const IdentifierConfig &cfg)
-    : Outputs(cfg),
-      _outheader(path(stem).concat(".h")),
+static void sanitize(std::string &name) {
+  for (char &c : name) {
+    if (!std::isalnum(c) && c != '_') {
+      c = '_';
+    }
+  }
+}
+
+FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sources)
+    : _outheader(path(stem).concat(".h")),
       _hf(_outheader),
       _sf(path(stem).concat(".cpp")) {
-  _macroname = _cfg.sanitize(stem.filename().string());
+  _macroname = stem.filename().string();
+  sanitize(_macroname);
   _hf << "/*\n";
   _hf << " * This header file was generated automatically by unplusplus.\n";
   _hf << " */\n";

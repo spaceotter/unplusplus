@@ -16,15 +16,10 @@
 
 namespace unplusplus {
 class Outputs {
- protected:
-  const IdentifierConfig &_cfg;
-
  public:
-  Outputs(const IdentifierConfig &cfg) : _cfg(cfg) {}
   virtual std::ostream &hf() = 0;
   virtual std::ostream &sf() = 0;
   virtual void addCHeader(const std::string &path) = 0;
-  const IdentifierConfig &cfg() const { return _cfg; }
 };
 
 class FileOutputs : public Outputs {
@@ -35,8 +30,7 @@ class FileOutputs : public Outputs {
   std::unordered_set<std::string> _cheaders;
 
  public:
-  FileOutputs(const std::filesystem::path &stem, const std::vector<std::string> &sources,
-              const IdentifierConfig &cfg);
+  FileOutputs(const std::filesystem::path &stem, const std::vector<std::string> &sources);
   ~FileOutputs();
   std::ostream &hf() override { return _hf; };
   std::ostream &sf() override { return _sf; };
@@ -50,7 +44,7 @@ class SubOutputs : public Outputs {
   std::ostringstream _sf;
 
  public:
-  explicit SubOutputs(Outputs &parent) : Outputs(parent.cfg()), _parent(parent) {}
+  explicit SubOutputs(Outputs &parent) : _parent(parent) {}
   ~SubOutputs();
   std::ostream &hf() override { return _hf; };
   std::ostream &sf() override { return _sf; };

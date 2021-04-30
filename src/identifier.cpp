@@ -216,10 +216,7 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   t = t->getUnqualifiedDesugaredType();
 
   if (const auto *bt = dyn_cast<BuiltinType>(t)) {
-    if (qt->isBooleanType()) {
-      c = "bool " + name.c;
-      cpp = "bool " + name.cpp;
-    } else if (qt->isNullPtrType()) {
+    if (qt->isNullPtrType()) {
       c = "void * " + name.c;
       cpp = "std::nullptr_t " + name.cpp;
     } else {

@@ -16,10 +16,10 @@
 
 namespace unplusplus {
 class IndexActionFactory : public clang::tooling::FrontendActionFactory {
-  DeclHandler &_dh;
+  Outputs &_out;
 
  public:
-  IndexActionFactory(DeclHandler &dh) : _dh(dh) {}
+  IndexActionFactory(Outputs &out) : _out(out) {}
 
   std::unique_ptr<clang::FrontendAction> create() override;
 };
