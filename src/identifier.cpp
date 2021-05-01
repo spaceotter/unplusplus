@@ -134,8 +134,6 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
       // is global.
       if (ED->isScoped())
         os << ED->getDeclName().getAsString();
-      else
-        continue;
     } else {
       os << cast<NamedDecl>(DC)->getDeclName().getAsString();
     }
@@ -144,18 +142,14 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
 
   if (!ctor && !dtor) {
     if (!first) os << cfg.c_separator;
-    if (d->getDeclName())
-      os << d->getDeclName().getAsString();
-    else {
-      // Give the printName override a chance to pick a different name before we
-      // fall back to "(anonymous)".
-      SmallString<64> NameBuffer;
-      llvm::raw_svector_ostream NameOS(NameBuffer);
-      d->printName(NameOS);
-      if (NameBuffer.empty())
-        throw mangling_error("Anonymous Decl");
+    std::string name = getName(d);
+    if (name.empty()) {
+      if (isa<EnumDecl>(d))
+        os << "<anonymous>";
       else
-        os << NameBuffer.c_str();
+        throw mangling_error("Anonymous Decl");
+    } else {
+      os << name;
     }
 
     const TemplateArgumentList *l = nullptr;
@@ -244,12 +238,7 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
     *this = Identifier(pt->getPointeeType(), name, cfg);
   } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
-    std::string s;
-    llvm::raw_string_ostream ss(s);
-    ss << "[";
-    pt->getSize().print(ss, false);
-    ss << "]";
-    ss.flush();
+    std::string s = "[" + pt->getSize().toString(10, false) + "]";
     *this = Identifier(pt->getElementType(), {name.c + s, name.cpp + s}, cfg);
   } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
     std::stringstream ssc;
@@ -312,18 +301,21 @@ bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {
   return false;
 }
 
-const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
-  std::string name = d->getDeclName().getAsString();
-  if (name.empty()) {
+std::string unplusplus::getName(const NamedDecl *d) {
+  if (d->getDeclName())
+    return d->getDeclName().getAsString();
+  else {
     // Give the printName override a chance to pick a different name before we
     // fall back to "(anonymous)".
     SmallString<64> NameBuffer;
     llvm::raw_svector_ostream NameOS(NameBuffer);
     d->printName(NameOS);
-    if (!NameBuffer.empty()) {
-      return nullptr;
-    }
+    return NameBuffer.str().str();
+  }
+}
 
+const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
+  if (getName(d).empty()) {
     // try to find a typedef that is naming this anonymous declaration
     if (const auto *tnext = dyn_cast<TypedefDecl>(d->getNextDeclInContext())) {
       if (const auto *tagt =

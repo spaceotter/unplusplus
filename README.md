@@ -35,6 +35,8 @@ to avoid issues with system header or ABI incompatibility.
 * Returning structs/classes by value is changed to supplying a pointer argument for the output to be
   assigned.
 * Functions declarations with arguments without a provided name are given generated ones.
+* Enumeration values are copied to the output.
+* Enumerations with a non-int type are generated as a bunch of macros.
 
 ## Limitations
 

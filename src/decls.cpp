@@ -32,6 +32,8 @@ void DeclHandler::forward(const QualType &qt) {
     forward(pt->getElementType());
   } else if (qt->isBuiltinType()) {
     return;
+  } else if (qt->isFunctionProtoType()) {
+    return;
   } else {
     std::string s;
     llvm::raw_string_ostream ss(s);
@@ -151,7 +153,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
           pt = _d->getASTContext().getPointerType(pt.getNonReferenceType());
           call << "*";
         }
-        std::string pname = p->getDeclName().getAsString();
+        std::string pname = getName(p);
         if (pname.empty()) pname = cfg().root_prefix + "arg_" + std::to_string(i);
         Identifier pn(pname, cfg());
         Identifier pi(pt, pn, cfg());
@@ -166,7 +168,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
       if (d->getDeclContext()->isExternCContext()) {
         out.sf() << "// defined externally\n";
       } else {
-        std::string fname = d->getDeclName().getAsString();
+        std::string fname = getName(d);
         out.sf() << signature.c << " {\n  ";
         if (dtor) {
           out.sf() << "delete " << cfg()._this;
@@ -266,21 +268,63 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
     SubOutputs out(_out);
     preamble(out);
 
-    out.hf() << "#ifdef __cplusplus\n";
-    out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
-    out.hf() << "#else\n";
-    out.hf() << "typedef enum " << _i.c << cfg()._enum << " {\n";
-    for (const auto *e : _d->enumerators()) {
-      Identifier entry(e, cfg());
-      out.hf() << "  " << entry.c << " = ";
-      std::string s;
-      llvm::raw_string_ostream ss(s);
-      e->getInitVal().print(ss, false);
-      ss.flush();
-      out.hf() << s << ",\n";
+    // try to figure out if C will have the correct type for the enum.
+
+    // if there's a negative value, signed int will be assumed
+    bool negative = false;
+    for (const auto *e : _d->enumerators())
+      if (e->getInitVal().isNegative())
+        negative = true;
+
+    const ASTContext &AC = _d->getASTContext();
+    const Type *int_type = _d->getIntegerType()->getUnqualifiedDesugaredType();
+    const Type *expected = (negative ? AC.IntTy : AC.UnsignedIntTy).getTypePtr();
+    // generate some macros instead of a typedef enum
+    bool macros = int_type != expected;
+
+    const TypedefDecl *tdd = getAnonTypedef(_d);
+    // is it truely anonymous, with no typedef even?
+    bool anon = getName(d).empty() && tdd == nullptr;
+
+    if(!anon) {
+      out.hf() << "#ifdef __cplusplus\n";
+      out.hf() << "typedef ";
+      if (tdd == nullptr)
+        out.hf() << "enum ";
+      out.hf() << _i.cpp << " " << _i.c << ";\n";
+      out.hf() << "#else\n";
+      if (!macros) out.hf() << "typedef ";
     }
-    out.hf() << "} " << _i.c << ";\n";
-    out.hf() << "#endif // __cplusplus\n\n";
+
+    if (macros) {
+      for (const auto *e : _d->enumerators()) {
+        Identifier entry(e, cfg());
+        Identifier entryt(d->getIntegerType(), Identifier(), cfg());
+        out.hf() << "#define " << entry.c << " ((" << entryt.c << ")";
+        out.hf() << e->getInitVal().toString(10) << ")\n";
+      }
+      if (!anon) {
+        Identifier ii(d->getIntegerType(), Identifier(_i.c, cfg()), cfg());
+        out.hf() << "typedef " << ii.c << ";\n";
+      }
+    } else {
+      out.hf() << "enum ";
+      if (!anon)
+        out.hf() << _i.c << cfg()._enum << " ";
+      out.hf() << "{\n";
+      for (const auto *e : _d->enumerators()) {
+        Identifier entry(e, cfg());
+        out.hf() << "  " << entry.c << " = ";
+        out.hf() << e->getInitVal().toString(10) << ",\n";
+      }
+      out.hf() << "}";
+      if (!anon)
+        out.hf() << " " << _i.c;
+      out.hf() << ";\n";
+    }
+
+    if (!anon) out.hf() << "#endif // __cplusplus\n\n";
+    else out.hf() << "\n";
   }
 };
 
