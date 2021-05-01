@@ -45,7 +45,7 @@ template <class T>
 struct DeclWriter : public DeclWriterBase {
   typedef T type;
   const T *_d;
-  const Identifier _i;
+  Identifier _i;
 
   DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _dh.cfg()) {}
 
@@ -69,29 +69,22 @@ static bool isAnonStruct(const QualType &qt) {
 
 struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
   TypedefDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    const QualType &t = d->getUnderlyingType();
+    if (isAnonStruct(t)) return;
+
     SubOutputs out(_out);
     preamble(out);
 
     // need to add a forward declaration if the target type is a struct - it may not have been
     // declared already.
-    const QualType &t = d->getUnderlyingType();
-    bool anon = isAnonStruct(t);
     try {
-      if (anon) {
-        out.hf() << "#ifdef __cplusplus\n";
-        out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
-        out.hf() << "#else\n";
-        out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
-        out.hf() << "#endif // __cplusplus\n\n";
-      } else {
-        _dh.forward(t);
-        Identifier ti(t, Identifier(_i.c, cfg()), cfg());
-        out.hf() << "#ifdef __cplusplus\n";
-        out.hf() << "typedef " << ti.cpp << ";\n";
-        out.hf() << "#else\n";
-        out.hf() << "typedef " << ti.c << ";\n";
-        out.hf() << "#endif // __cplusplus\n\n";
-      }
+      _dh.forward(t);
+      Identifier ti(t, Identifier(_i.c, cfg()), cfg());
+      out.hf() << "#ifdef __cplusplus\n";
+      out.hf() << "typedef " << ti.cpp << ";\n";
+      out.hf() << "#else\n";
+      out.hf() << "typedef " << ti.c << ";\n";
+      out.hf() << "#endif // __cplusplus\n\n";
     } catch (const mangling_error err) {
       std::cerr << "Error: " << err.what() << std::endl;
       out.hf() << "// ERROR: " << err.what() << "\n\n";
@@ -229,8 +222,8 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
       bool any_dtor = false;
       for (const auto method : _d->methods()) {
         _dh.add(method);
-        if(isa<CXXConstructorDecl>(method)) any_ctor = true;
-        if(isa<CXXDestructorDecl>(method)) any_dtor = true;
+        if (isa<CXXConstructorDecl>(method)) any_ctor = true;
+        if (isa<CXXDestructorDecl>(method)) any_dtor = true;
       }
       if (!any_ctor && _d->hasDefaultConstructor()) {
         std::string name = _i.c;
@@ -265,6 +258,29 @@ struct FunctionTemplateDeclWriter : public DeclWriter<FunctionTemplateDecl> {
     for (auto as : _d->specializations()) {
       _dh.add(as);
     }
+  }
+};
+
+struct EnumDeclWriter : public DeclWriter<EnumDecl> {
+  EnumDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    SubOutputs out(_out);
+    preamble(out);
+
+    out.hf() << "#ifdef __cplusplus\n";
+    out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
+    out.hf() << "#else\n";
+    out.hf() << "typedef enum " << _i.c << cfg()._enum << " {\n";
+    for (const auto *e : _d->enumerators()) {
+      Identifier entry(e, cfg());
+      out.hf() << "  " << entry.c << " = ";
+      std::string s;
+      llvm::raw_string_ostream ss(s);
+      e->getInitVal().print(ss, false);
+      ss.flush();
+      out.hf() << s << ",\n";
+    }
+    out.hf() << "} " << _i.c << ";\n";
+    out.hf() << "#endif // __cplusplus\n\n";
   }
 };
 
@@ -303,6 +319,8 @@ void DeclHandler::add(const Decl *d) {
       _decls[d].reset(new FunctionDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<FunctionTemplateDecl>(d))
       _decls[d].reset(new FunctionTemplateDeclWriter(sd, *this));
+    else if (const auto *sd = dyn_cast<EnumDecl>(d))
+      _decls[d].reset(new EnumDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<FieldDecl>(d))
       ;  // Ignore, fields are handled in the respective record
     else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))

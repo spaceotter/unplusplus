@@ -179,10 +179,20 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   if (d == nullptr) {
     throw mangling_error("Null Decl");
   }
+
   if (ids.count(d)) {
     c = ids.at(d).c;
     cpp = ids.at(d).cpp;
   } else {
+    // if this is an anonymous decl that is being given a name by a typedef, steal the typedef's
+    // name
+    // as this decl's name, but cache the result for this decl.
+    const NamedDecl *orig = getAnonTypedef(d);
+    if (orig)
+      std::swap(d, orig);
+    else
+      orig = d;
+
     if (d->getDeclContext()->isExternCContext()) {
       c = d->getDeclName().getAsString();
       if (dups.count(c)) {
@@ -205,7 +215,7 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
     d->getNameForDiagnostic(ArgOS, cfg.PP, true);
     cpp = ArgOS.str().str();
 
-    ids.emplace(std::make_pair(d, *this));
+    ids.emplace(std::make_pair(orig, *this));
   }
 }
 
@@ -300,4 +310,30 @@ bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {
   }
 
   return false;
+}
+
+const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
+  std::string name = d->getDeclName().getAsString();
+  if (name.empty()) {
+    // Give the printName override a chance to pick a different name before we
+    // fall back to "(anonymous)".
+    SmallString<64> NameBuffer;
+    llvm::raw_svector_ostream NameOS(NameBuffer);
+    d->printName(NameOS);
+    if (!NameBuffer.empty()) {
+      return nullptr;
+    }
+
+    // try to find a typedef that is naming this anonymous declaration
+    if (const auto *tnext = dyn_cast<TypedefDecl>(d->getNextDeclInContext())) {
+      if (const auto *tagt =
+              dyn_cast<TagType>(tnext->getUnderlyingType()->getUnqualifiedDesugaredType())) {
+        const NamedDecl *tagd = tagt->getDecl()->getUnderlyingDecl();
+        if (tagd == d) {
+          return tnext;
+        }
+      }
+    }
+  }
+  return nullptr;
 }

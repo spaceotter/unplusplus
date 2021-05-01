@@ -25,6 +25,7 @@ struct IdentifierConfig {
   std::string _this = "_upp_this";
   std::string _return = "_upp_return";
   std::string _struct = "_s_";
+  std::string _enum = "_e_";
   std::string dtor = "del_";
   std::string ctor = "new_";
   clang::PrintingPolicy PP;
@@ -50,4 +51,6 @@ struct Identifier {
 };
 
 bool isLibraryInternal(const clang::NamedDecl *d);
+// If the NamedDecl is an anonymous struct or enum, get the typedef that is giving it a name.
+const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);
 }  // namespace unplusplus
