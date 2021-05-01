@@ -273,8 +273,7 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
     // if there's a negative value, signed int will be assumed
     bool negative = false;
     for (const auto *e : _d->enumerators())
-      if (e->getInitVal().isNegative())
-        negative = true;
+      if (e->getInitVal().isNegative()) negative = true;
 
     const ASTContext &AC = _d->getASTContext();
     const Type *int_type = _d->getIntegerType()->getUnqualifiedDesugaredType();
@@ -286,11 +285,10 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
     // is it truely anonymous, with no typedef even?
     bool anon = getName(d).empty() && tdd == nullptr;
 
-    if(!anon) {
+    if (!anon) {
       out.hf() << "#ifdef __cplusplus\n";
       out.hf() << "typedef ";
-      if (tdd == nullptr)
-        out.hf() << "enum ";
+      if (tdd == nullptr) out.hf() << "enum ";
       out.hf() << _i.cpp << " " << _i.c << ";\n";
       out.hf() << "#else\n";
       if (!macros) out.hf() << "typedef ";
@@ -309,8 +307,7 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
       }
     } else {
       out.hf() << "enum ";
-      if (!anon)
-        out.hf() << _i.c << cfg()._enum << " ";
+      if (!anon) out.hf() << _i.c << cfg()._enum << " ";
       out.hf() << "{\n";
       for (const auto *e : _d->enumerators()) {
         Identifier entry(e, cfg());
@@ -318,13 +315,14 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
         out.hf() << e->getInitVal().toString(10) << ",\n";
       }
       out.hf() << "}";
-      if (!anon)
-        out.hf() << " " << _i.c;
+      if (!anon) out.hf() << " " << _i.c;
       out.hf() << ";\n";
     }
 
-    if (!anon) out.hf() << "#endif // __cplusplus\n\n";
-    else out.hf() << "\n";
+    if (!anon)
+      out.hf() << "#endif // __cplusplus\n\n";
+    else
+      out.hf() << "\n";
   }
 };
 

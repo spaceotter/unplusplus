@@ -132,8 +132,7 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
       // For the case of unscoped enumerator, do not include in the qualified
       // name any information about its enum enclosing scope, as its visibility
       // is global.
-      if (ED->isScoped())
-        os << ED->getDeclName().getAsString();
+      if (ED->isScoped()) os << ED->getDeclName().getAsString();
     } else {
       os << cast<NamedDecl>(DC)->getDeclName().getAsString();
     }

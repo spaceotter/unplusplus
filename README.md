@@ -1,7 +1,8 @@
 # unplusplus
 
-This project aims to generate from a C++ header a C++ library containing stubs with C linkage that
-allow basic usage of C++ features from C. The expected use case is to allow a C-only foreign
+This project aims to automatically generate a C interface to C++. More precisely, it generates
+source code for a C++ library from a C++ header, that contains stubs with C linkage that allow basic
+usage of C++ features from C, as described below. The expected use case is to allow a C-only foreign
 function interface (FFI) to use a C++ library.
 
 The project is not ready for general use yet.
@@ -9,7 +10,7 @@ The project is not ready for general use yet.
 ## Workflow:
 1. Build the target C++ library.
 2. Create a header with all the desired parts of the target library included.
-3. Run unplusplus on that header to generate the C++ to C interface.
+3. Run unplusplus on that header to generate the C++ to C interface, along with all the compiler options that were used on the library.
 4. Build the generated stubs with the C++ compiler.
 5. Build the C code that uses the generated header with the C compiler.
 
