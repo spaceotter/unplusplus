@@ -50,19 +50,28 @@ std::string IdentifierConfig::sanitize(const std::string &name) const {
 static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args,
                                const IdentifierConfig &cfg);
 
+static void printCTemplateArg(std::ostream &os, QualType QT, const IdentifierConfig &cfg) {
+  if (QT.isLocalConstQualified()) {
+    os << "const_";
+    QT.removeLocalConst();
+  }
+  if (QT->isAnyPointerType()) {
+    printCTemplateArg(os, QT->getPointeeType(), cfg);
+    os << "_ptr";
+  } else if (QT->isReferenceType()) {
+    printCTemplateArg(os, QT->getPointeeType(), cfg);
+    os << "_ref";
+  } else {
+    os << cfg.getCName(QT, "", false);
+  }
+}
+
 // mirror TemplateArgument::print
 static void printCTemplateArg(std::ostream &os, const TemplateArgument &Arg, const IdentifierConfig &cfg) {
   switch (Arg.getKind()) {
     case TemplateArgument::Type: {
       // FIXME SubPolicy.SuppressStronglifetime = true;
-      QualType QT = Arg.getAsType();
-      if (QT->isAnyPointerType()) {
-        os << cfg.getCName(QT->getPointeeType(), "", false) << "_ptr";
-      } else if (QT->isReferenceType()) {
-        os << cfg.getCName(QT->getPointeeType(), "", false) << "_ref";
-      } else {
-        os << cfg.getCName(QT, "", false);
-      }
+      printCTemplateArg(os, Arg.getAsType(), cfg);
       break;
     }
 
