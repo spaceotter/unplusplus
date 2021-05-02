@@ -132,7 +132,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
 
   bool first = true;
   for (const DeclContext *DC : llvm::reverse(Contexts)) {
-    if (!first) os << c_separator;
+    if (!first && !(isa<EnumDecl>(DC) && !dyn_cast<EnumDecl>(DC)->isScoped())) os << c_separator;
     if (const auto *D = dyn_cast<Decl>(DC)) {
       AccessSpecifier a = D->getAccess();
       if (a == AccessSpecifier::AS_private) throw mangling_error("Private parent decl");
@@ -148,14 +148,14 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
         throw mangling_error("Anonymous namespace");
       } else
         os << ND->getDeclName().getAsString();
-    } else if (const auto *RD = dyn_cast<clang::RecordDecl>(DC)) {
+    } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
       if (!RD->getIdentifier())
         throw mangling_error("Anonymous struct or class");
       else
         os << RD->getDeclName().getAsString();
-    } else if (const auto *FD = dyn_cast<clang::FunctionDecl>(DC)) {
+    } else if (const auto *FD = dyn_cast<FunctionDecl>(DC)) {
       throw mangling_error("Decl inside a fuction");
-    } else if (const auto *ED = dyn_cast<clang::EnumDecl>(DC)) {
+    } else if (const auto *ED = dyn_cast<EnumDecl>(DC)) {
       // C++ [dcl.enum]p10: Each enum-name and each unscoped
       // enumerator is declared in the scope that immediately contains
       // the enum-specifier. Each scoped enumerator is declared in the
@@ -208,7 +208,10 @@ std::string IdentifierConfig::getCName(const Type *t, const std::string &name, b
       c = btn + sname;
     }
   } else if (const auto *tt = dyn_cast<TagType>(t)) {
-    c = getCName(tt->getDecl(), root) + sname;
+    if (root)
+      c = Identifier(tt->getDecl(), *this).c + sname;
+    else
+      c = getCName(tt->getDecl(), root) + sname;
   } else if (const auto *pt = dyn_cast<PointerType>(t)) {
     c = getCName(pt->getPointeeType(), "*" + name);
   } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
