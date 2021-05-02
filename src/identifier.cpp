@@ -47,33 +47,64 @@ std::string IdentifierConfig::sanitize(const std::string &name) const {
   return result;
 }
 
+static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args,
+                               const IdentifierConfig &cfg);
+
+// mirror TemplateArgument::print
+static void printCTemplateArg(std::ostream &os, const TemplateArgument &Arg, const IdentifierConfig &cfg) {
+  switch (Arg.getKind()) {
+    case TemplateArgument::Type: {
+      // FIXME SubPolicy.SuppressStronglifetime = true;
+      QualType QT = Arg.getAsType();
+      if (QT->isAnyPointerType()) {
+        os << cfg.getCName(QT->getPointeeType(), "", false) << "_ptr";
+      } else if (QT->isReferenceType()) {
+        os << cfg.getCName(QT->getPointeeType(), "", false) << "_ref";
+      } else {
+        os << cfg.getCName(QT, "", false);
+      }
+      break;
+    }
+
+    case TemplateArgument::Declaration: {
+      NamedDecl *ND = Arg.getAsDecl();
+      os << cfg.getCName(ND, false);
+      break;
+    }
+
+    case TemplateArgument::Pack:
+      printCTemplateArgs(os, Arg.pack_elements(), cfg);
+      break;
+
+    default:
+      std::string Buf;
+      llvm::raw_string_ostream ArgOS(Buf);
+      Arg.print(cfg.PP, ArgOS);
+      ArgOS.flush();
+      os << ArgOS.str();
+      break;
+  }
+}
+
 // replaces printTemplateArgumentList(os, TemplateArgs.asArray(), P);
 static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args,
                                const IdentifierConfig &cfg) {
   bool FirstArg = true;
   for (const auto &Arg : Args) {
-    // Print the argument into a string.
-    SmallString<128> Buf;
-    llvm::raw_svector_ostream ArgOS(Buf);
-    const TemplateArgument &Argument = Arg;
-    if (Argument.getKind() == TemplateArgument::Pack) {
-      if (Argument.pack_size() && !FirstArg) os << cfg.c_separator;
-      printCTemplateArgs(os, Argument.getPackAsArray(), cfg);
+    if (Arg.getKind() == TemplateArgument::Pack) {
+      if (Arg.pack_size() && !FirstArg) os << cfg.c_separator;
     } else {
       if (!FirstArg) os << cfg.c_separator;
-      // Tries to print the argument with location info if exists.
-      Arg.print(cfg.PP, ArgOS);
     }
 
-    StringRef ArgString = ArgOS.str();
-    os << ArgString.str();
+    printCTemplateArg(os, Arg, cfg);
 
     FirstArg = false;
   }
 }
 
 // closely follows the NamedDecl::printQualifiedName method
-static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
+std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) const {
   std::stringstream os;
   const DeclContext *Ctx = d->getDeclContext();
   if (Ctx->isFunctionOrMethod()) {
@@ -82,15 +113,15 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
   using ContextsTy = SmallVector<const DeclContext *, 8>;
   ContextsTy Contexts;
 
-  os << cfg.root_prefix;
+  if (root) os << _root;
 
   bool ctor = dyn_cast<CXXConstructorDecl>(d);
   bool dtor = dyn_cast<CXXDestructorDecl>(d);
   if (ctor) {
-    os << cfg.ctor;
+    os << _ctor;
   }
   if (dtor) {
-    os << cfg.dtor;
+    os << _dtor;
   }
 
   // Collect named contexts.
@@ -101,7 +132,7 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
 
   bool first = true;
   for (const DeclContext *DC : llvm::reverse(Contexts)) {
-    if (!first) os << cfg.c_separator;
+    if (!first) os << c_separator;
     if (const auto *D = dyn_cast<Decl>(DC)) {
       AccessSpecifier a = D->getAccess();
       if (a == AccessSpecifier::AS_private) throw mangling_error("Private parent decl");
@@ -110,8 +141,8 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
     if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
       os << Spec->getName().str();
       const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
-      os << cfg.c_separator;
-      printCTemplateArgs(os, TemplateArgs.asArray(), cfg);
+      os << c_separator;
+      printCTemplateArgs(os, TemplateArgs.asArray(), *this);
     } else if (const auto *ND = dyn_cast<NamespaceDecl>(DC)) {
       if (ND->isAnonymousNamespace()) {
         throw mangling_error("Anonymous namespace");
@@ -140,7 +171,7 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
   }
 
   if (!ctor && !dtor) {
-    if (!first) os << cfg.c_separator;
+    if (!first) os << c_separator;
     std::string name = getName(d);
     if (name.empty()) {
       if (isa<EnumDecl>(d))
@@ -157,12 +188,64 @@ static std::string getCName(const clang::NamedDecl *d, const IdentifierConfig &c
     else if (const auto *t = dyn_cast<FunctionDecl>(d))
       l = t->getTemplateSpecializationArgs();
     if (l != nullptr) {
-      os << cfg.c_separator;
-      printCTemplateArgs(os, l->asArray(), cfg);
+      os << c_separator;
+      printCTemplateArgs(os, l->asArray(), *this);
     }
   }
 
-  return cfg.sanitize(os.str());
+  return sanitize(os.str());
+}
+
+std::string IdentifierConfig::getCName(const Type *t, const std::string &name, bool root) const {
+  std::string c;
+  std::string sname = name.empty() ? "" : " " + name;
+
+  if (const auto *bt = dyn_cast<BuiltinType>(t)) {
+    if (t->isNullPtrType()) {
+      c = "void *" + name;
+    } else {
+      std::string btn = (bt->getName(PP)).str();
+      c = btn + sname;
+    }
+  } else if (const auto *tt = dyn_cast<TagType>(t)) {
+    c = getCName(tt->getDecl(), root) + sname;
+  } else if (const auto *pt = dyn_cast<PointerType>(t)) {
+    c = getCName(pt->getPointeeType(), "*" + name);
+  } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
+    c = getCName(pt->getPointeeType(), name);
+  } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
+    std::string s = "[" + pt->getSize().toString(10, false) + "]";
+    c = getCName(pt->getElementType(), name + s);
+  } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
+    std::stringstream ss;
+    bool first = true;
+    for (size_t i = 0; i < pt->getNumParams(); i++) {
+      std::string pname = "p" + std::to_string(i);
+      if (!first) ss << ", ";
+      ss << getCName(pt->getParamType(i), pname);
+      first = false;
+    }
+    c = getCName(pt->getReturnType(), "(" + name + ")(" + ss.str() + ")");
+  } else {
+    throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
+  }
+  return c;
+}
+
+std::string IdentifierConfig::getCName(const QualType &qt, const std::string &name, bool root) const {
+  const Type *t = qt.getTypePtrOrNull();
+  if (t == nullptr) {
+    throw mangling_error("Type is null");
+  }
+  t = t->getUnqualifiedDesugaredType();
+
+  std::string c = getCName(t, name, root);
+
+  if (qt.isLocalConstQualified()) {
+    c = "const " + c;
+  }
+
+  return c;
 }
 
 std::unordered_map<const clang::NamedDecl *, Identifier> Identifier::ids;
@@ -193,7 +276,7 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
                              "`");
       }
     } else {
-      c = getCName(d, cfg);
+      c = cfg.getCName(d);
       if (dups.count(c)) {
         unsigned cnt = 2;
         std::string nc;
@@ -213,58 +296,12 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
 }
 
 Identifier::Identifier(const QualType &qt, const Identifier &name, const IdentifierConfig &cfg) {
-  const Type *t = qt.getTypePtrOrNull();
-  if (t == nullptr) {
-    throw mangling_error("Null Decl");
-  }
-  t = t->getUnqualifiedDesugaredType();
-
-  if (const auto *bt = dyn_cast<BuiltinType>(t)) {
-    if (qt->isNullPtrType()) {
-      c = "void * " + name.c;
-      cpp = "std::nullptr_t " + name.cpp;
-    } else {
-      std::string btn = (bt->getName(cfg.PP) + " ").str();
-      c = btn + name.c;
-      cpp = btn + name.cpp;
-    }
-  } else if (const auto *tt = dyn_cast<TagType>(t)) {
-    *this = Identifier(tt->getDecl(), cfg);
-    c += " " + name.c;
-    cpp += " " + name.cpp;
-  } else if (const auto *pt = dyn_cast<PointerType>(t)) {
-    *this = Identifier(pt->getPointeeType(), {"*" + name.c, "*" + name.cpp}, cfg);
-  } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
-    *this = Identifier(pt->getPointeeType(), name, cfg);
-  } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
-    std::string s = "[" + pt->getSize().toString(10, false) + "]";
-    *this = Identifier(pt->getElementType(), {name.c + s, name.cpp + s}, cfg);
-  } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
-    std::stringstream ssc;
-    std::stringstream sscpp;
-    bool first = true;
-    for (size_t i = 0; i < pt->getNumParams(); i++) {
-      Identifier pname("p" + std::to_string(i), cfg);
-      Identifier p(pt->getParamType(i), pname, cfg);
-      if (!first) {
-        ssc << ", ";
-        sscpp << ", ";
-      }
-      ssc << p.c;
-      sscpp << p.cpp;
-      first = false;
-    }
-    *this = Identifier(
-        pt->getReturnType(),
-        {"(" + name.c + ")(" + ssc.str() + ")", "(" + name.cpp + ")(" + sscpp.str() + ")"}, cfg);
-  } else {
-    throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
-  }
-
-  if (qt.isLocalConstQualified()) {
-    c = "const " + c;
-    cpp = "const " + cpp;
-  }
+  c = cfg.getCName(qt, name.c);
+  std::string s;
+  llvm::raw_string_ostream ss(s);
+  qt.print(ss, cfg.PP, name.cpp);
+  ss.flush();
+  cpp = ss.str();
 }
 
 bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {

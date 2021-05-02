@@ -20,16 +20,25 @@ struct mangling_error : public std::runtime_error {
 struct IdentifierConfig {
   IdentifierConfig(const clang::LangOptions &opts) : PP(opts) {}
   // these determine how flattened C names are assembled
-  std::string root_prefix = "upp_";
+  std::string _root = "upp_";
   std::string c_separator = "_";
   std::string _this = "_upp_this";
   std::string _return = "_upp_return";
   std::string _struct = "_s_";
   std::string _enum = "_e_";
-  std::string dtor = "del_";
-  std::string ctor = "new_";
+  std::string _dtor = "del_";
+  std::string _ctor = "new_";
+  // this is needed for clang to print things correctly, like bool
   clang::PrintingPolicy PP;
+
+  // remove illegal characters
   std::string sanitize(const std::string &name) const;
+
+  // get a mangled name to use in C to refer to C++ clang declarations
+  std::string getCName(const clang::NamedDecl *d, bool root = true) const;
+  // get a type specifier that uses the mangled C names, and wraps the given name
+  std::string getCName(const clang::Type *t, const std::string &name, bool root = true) const;
+  std::string getCName(const clang::QualType &qt, const std::string &name, bool root = true) const;
 };
 
 struct Identifier {
@@ -50,8 +59,9 @@ struct Identifier {
   std::string cpp;  // the fully qualified C++ name
 };
 
+// a filter function to avoid some private library declarations
 bool isLibraryInternal(const clang::NamedDecl *d);
-// Get the name, or overridden print operator
+// Get the decl name, or overridden print operator
 std::string getName(const clang::NamedDecl *d);
 // If the NamedDecl is an anonymous struct or enum, get the typedef that is giving it a name.
 const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);

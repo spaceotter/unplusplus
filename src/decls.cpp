@@ -154,7 +154,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
           call << "*";
         }
         std::string pname = getName(p);
-        if (pname.empty()) pname = cfg().root_prefix + "arg_" + std::to_string(i);
+        if (pname.empty()) pname = cfg()._root + "arg_" + std::to_string(i);
         Identifier pn(pname, cfg());
         Identifier pi(pt, pn, cfg());
         _dh.forward(pt);
@@ -229,7 +229,7 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
       }
       if (!any_ctor && _d->hasDefaultConstructor()) {
         std::string name = _i.c;
-        name.insert(cfg().root_prefix.size(), cfg().ctor);
+        name.insert(cfg()._root.size(), cfg()._ctor);
         _out.hf() << "// Implicit constructor of " << _i.cpp << "\n";
         _out.sf() << "// Implicit constructor of " << _i.cpp << "\n";
         _out.hf() << _i.c << " *" << name << "();\n\n";
@@ -238,7 +238,7 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
       }
       if (!any_dtor) {
         std::string name = _i.c;
-        name.insert(cfg().root_prefix.size(), cfg().dtor);
+        name.insert(cfg()._root.size(), cfg()._dtor);
         _out.hf() << "// Implicit destructor of " << _i.cpp << "\n";
         _out.sf() << "// Implicit destructor of " << _i.cpp << "\n";
         _out.hf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ");\n\n";

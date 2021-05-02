@@ -11,3 +11,4 @@ typedef A::Foo<float> Barf;
 }  // namespace B
 
 extern template class A::Foo<float>;
+extern template class A::Foo<A::Foo<char *>>;
