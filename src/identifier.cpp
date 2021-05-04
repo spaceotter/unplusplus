@@ -374,7 +374,7 @@ bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {
       if (root == "std" && Contexts.size() > 1) {
         if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 2))) {
           std::string root = ND->getDeclName().getAsString();
-          if (root[0] == '_' && root[1] == '_') {
+          if (root[0] == '_') {
             return true;
           }
         }
