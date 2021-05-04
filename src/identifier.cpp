@@ -276,18 +276,18 @@ std::string IdentifierConfig::getCName(const Type *t, const std::string &name, b
   return c;
 }
 
-std::string IdentifierConfig::getCName(const QualType &qt, const std::string &name, bool root) const {
+std::string IdentifierConfig::getCName(const QualType &qt, std::string name, bool root) const {
   const Type *t = qt.getTypePtrOrNull();
   if (t == nullptr) {
     throw mangling_error("Type is null");
   }
   t = t->getUnqualifiedDesugaredType();
 
-  std::string c = getCName(t, name, root);
-
   if (qt.isLocalConstQualified()) {
-    c = "const " + c;
+    name = "const " + name;
   }
+
+  std::string c = getCName(t, name, root);
 
   return c;
 }

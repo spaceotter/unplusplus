@@ -7,4 +7,5 @@ struct Foo {
 struct Bar {
   int g(const Foo b);
 };
+extern Bar bar;
 }  // namespace A

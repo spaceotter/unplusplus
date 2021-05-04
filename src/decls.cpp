@@ -365,6 +365,24 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
   }
 };
 
+struct VarDeclWriter : DeclWriter<VarDecl> {
+  VarDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    SubOutputs out(_out);
+    preamble(out.hf());
+    preamble(out.sf());
+
+    //out.hf() << "#ifdef __cplusplus\n";
+    QualType ptr = _d->getASTContext().getPointerType(_d->getType());
+    _dh.forward(ptr);
+    ptr.addConst();
+    Identifier v(ptr, _i, cfg());
+    out.hf() << "extern " << v.c << ";\n\n";
+    //out.hf() << "#ifndef __cplusplus\n";
+
+    out.sf() << v.c << " = &(" << _i.cpp << ");\n\n";
+  }
+};
+
 void DeclHandler::add(const Decl *d) {
   // skip if this or any previous declaration of the same thing was already processed
   const Decl *pd = d;
@@ -399,6 +417,8 @@ void DeclHandler::add(const Decl *d) {
       _decls[d].reset(new FunctionTemplateDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<EnumDecl>(d))
       _decls[d].reset(new EnumDeclWriter(sd, *this));
+    else if (const auto *sd = dyn_cast<VarDecl>(d))
+      _decls[d].reset(new VarDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<FieldDecl>(d))
       ;  // Ignore, fields are handled in the respective record
     else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))

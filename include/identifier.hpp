@@ -41,7 +41,7 @@ struct IdentifierConfig {
   std::string getCName(const clang::NamedDecl *d, bool root = true) const;
   // get a type specifier that uses the mangled C names, and wraps the given name
   std::string getCName(const clang::Type *t, const std::string &name, bool root = true) const;
-  std::string getCName(const clang::QualType &qt, const std::string &name, bool root = true) const;
+  std::string getCName(const clang::QualType &qt, std::string name, bool root = true) const;
 };
 
 struct Identifier {
