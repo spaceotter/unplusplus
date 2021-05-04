@@ -51,7 +51,7 @@ class UppAction : public ASTFrontendAction {
 
  protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef InFile) override {
-    _dh = std::make_unique<DeclHandler>(_out, CI.getLangOpts());
+    _dh = std::make_unique<DeclHandler>(_out, CI.getASTContext());
     return std::make_unique<UppASTConsumer>(*_dh);
   }
 };

@@ -18,7 +18,8 @@ using namespace unplusplus;
 using namespace clang;
 
 // clang-format off
-std::unordered_map<std::string, std::string> operator_map = {
+std::vector<std::pair<std::string, std::string>> operator_map = {
+  {"!=", "ne"},
   {"+", "add"},
   {"*", "mul"},
   {"/", "div"},
@@ -311,7 +312,11 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   c = cfg.getCName(qt, name.c);
   std::string s;
   llvm::raw_string_ostream ss(s);
-  qt.print(ss, cfg.PP, name.cpp);
+  QualType desugar = qt.getDesugaredType(cfg.astc);
+  if (desugar->isNullPtrType())
+    ss << "std::nullptr_t " << name.cpp;
+  else
+    desugar.print(ss, cfg.PP, name.cpp);
   ss.flush();
   cpp = ss.str();
 }

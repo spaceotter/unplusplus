@@ -7,6 +7,7 @@
 
 #include <clang/AST/Decl.h>
 #include <clang/AST/PrettyPrinter.h>
+#include <clang/AST/ASTContext.h>
 
 #include <string>
 #include <unordered_map>
@@ -18,7 +19,7 @@ struct mangling_error : public std::runtime_error {
 };
 
 struct IdentifierConfig {
-  IdentifierConfig(const clang::LangOptions &opts) : PP(opts) {}
+  IdentifierConfig(const clang::ASTContext &astc) : astc(astc), PP(astc.getLangOpts()) {}
   // these determine how flattened C names are assembled
   std::string _root = "upp_";
   std::string c_separator = "_";
@@ -28,8 +29,10 @@ struct IdentifierConfig {
   std::string _enum = "_e_";
   std::string _dtor = "del_";
   std::string _ctor = "new_";
+  // this is needed for "desugaring" and constructing derived types
+  const clang::ASTContext &astc;
   // this is needed for clang to print things correctly, like bool
-  clang::PrintingPolicy PP;
+  const clang::PrintingPolicy PP;
 
   // remove illegal characters
   std::string sanitize(const std::string &name) const;

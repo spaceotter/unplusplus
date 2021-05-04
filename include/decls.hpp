@@ -19,7 +19,7 @@ class DeclHandler {
   IdentifierConfig _cfg;
 
  public:
-  DeclHandler(Outputs &out, const clang::LangOptions &_opts) : _out(out), _cfg(_opts) {}
+  DeclHandler(Outputs &out, const clang::ASTContext &_astc) : _out(out), _cfg(_astc) {}
   void add(const clang::Decl *d);
   Outputs &out() { return _out; }
   void finish();
