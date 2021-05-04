@@ -116,6 +116,8 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
 
 struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
   FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    if (_d->isDeleted() || _d->isDeletedAsWritten()) return;
+
     SubOutputs out(_out);
     preamble(out);
 
