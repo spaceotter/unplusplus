@@ -6,6 +6,7 @@
 #include "decls.hpp"
 
 #include <clang/AST/ASTContext.h>
+#include <clang/AST/DeclFriend.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/DeclTemplate.h>
 #include <clang/Basic/SourceManager.h>
@@ -72,6 +73,7 @@ static bool isAnonStruct(const QualType &qt) {
 struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
   TypedefDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     const QualType &t = d->getUnderlyingType();
+    // This typedef was already handled by the anonymous struct or enum decl
     if (isAnonStruct(t)) return;
 
     SubOutputs out(_out);
@@ -222,10 +224,18 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
     if (_d->hasDefinition()) {
       bool any_ctor = false;
       bool any_dtor = false;
-      for (const auto method : _d->methods()) {
-        _dh.add(method);
-        if (isa<CXXConstructorDecl>(method)) any_ctor = true;
-        if (isa<CXXDestructorDecl>(method)) any_dtor = true;
+      for (const auto d : _d->decls()) {
+        if (d->getAccess() == AccessSpecifier::AS_public ||
+            d->getAccess() == AccessSpecifier::AS_none) {
+          if (const auto *nd = dyn_cast<NamedDecl>(d)) {
+            // Drop it if this decl will be ambiguous with a constructor
+            if (getName(nd) == getName(_d) && !isa<CXXConstructorDecl>(nd))
+              continue;
+          }
+          _dh.add(d);
+        }
+        if (isa<CXXConstructorDecl>(d)) any_ctor = true;
+        if (isa<CXXDestructorDecl>(d)) any_dtor = true;
       }
       if (!any_ctor && _d->hasDefaultConstructor()) {
         std::string name = _i.c;
@@ -282,7 +292,7 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
     bool macros = int_type != expected;
 
     const TypedefDecl *tdd = getAnonTypedef(_d);
-    // is it truely anonymous, with no typedef even?
+    // is it truly anonymous, with no typedef even?
     bool anon = getName(d).empty() && tdd == nullptr;
 
     if (!anon) {
@@ -327,9 +337,6 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
 };
 
 void DeclHandler::add(const Decl *d) {
-  // don't generate for redundant decls, such as those created by the "using" statement
-  if (const auto *nd = dyn_cast<NamedDecl>(d)) d = (const Decl *)nd->getUnderlyingDecl();
-
   // skip if this or any previous declaration of the same thing was already processed
   const Decl *pd = d;
   while (pd != nullptr) {
@@ -367,7 +374,30 @@ void DeclHandler::add(const Decl *d) {
       ;  // Ignore, fields are handled in the respective record
     else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))
       ;  // Ignore, the specializations are picked up elsewhere
-    else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
+    else if (const auto *sd = dyn_cast<AccessSpecDecl>(d))
+      ;  // Ignore, access for members comes from getAccess
+    else if (const auto *sd = dyn_cast<StaticAssertDecl>(d))
+      ;  // Ignore
+    else if (const auto *sd = dyn_cast<UsingShadowDecl>(d))
+      add(sd->getTargetDecl());
+    else if (const auto *sd = dyn_cast<UsingDecl>(d)) {
+      const NestedNameSpecifier *nn = sd->getQualifier();
+      switch(nn->getKind()) {
+        case NestedNameSpecifier::TypeSpec:
+          forward(QualType(nn->getAsType(), 0));
+          break;
+        default:
+          std::cerr << "Warning: Unhandled Using Declaration" << std::endl;
+          break;
+      }
+    } else if (const auto *sd = dyn_cast<NamespaceAliasDecl>(d))
+      add(sd->getNamespace());
+    else if (const auto *sd = dyn_cast<FriendDecl>(d)) {
+      if (sd->getFriendDecl())
+        add(sd->getFriendDecl());
+      else if (sd->getFriendType())
+        forward(sd->getFriendType()->getType());
+    } else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
       for (const auto ssd : sd->decls()) add(ssd);
     else if (const auto *sd = dyn_cast<LinkageSpecDecl>(d))
       for (const auto ssd : sd->decls()) add(ssd);
