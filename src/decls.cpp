@@ -70,6 +70,8 @@ static bool isAnonStruct(const QualType &qt) {
   return false;
 }
 
+static std::unordered_set<const TagDecl *> renamedInternals;
+
 struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
   TypedefDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     const QualType &t = d->getUnderlyingType();
@@ -82,12 +84,13 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     bool replacesInternal = false;
     if (const auto *tt = dyn_cast<TagType>(t->getUnqualifiedDesugaredType())) {
       const TagDecl *td = tt->getDecl();
-      if (isLibraryInternal(td)) {
+      if (!renamedInternals.count(td) && isLibraryInternal(td)) {
         // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
         // refer to it. Substitute the name of this typedef instead, and forward declare the missing
         // type.
         Identifier::ids[td] = _i;
         replacesInternal = true;
+        renamedInternals.emplace(td);
       }
     }
 
