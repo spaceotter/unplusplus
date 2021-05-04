@@ -52,12 +52,10 @@ struct DeclWriter : public DeclWriterBase {
 
   DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _dh.cfg()) {}
 
-  void preamble(Outputs &out) {
+  void preamble(std::ostream &out) {
     std::string location = _d->getLocation().printToString(_d->getASTContext().getSourceManager());
-    out.hf() << "// location: " << location << "\n";
-    out.hf() << "// C++ name: " << _i.cpp << "\n";
-    out.sf() << "// location: " << location << "\n";
-    out.sf() << "// C++ name: " << _i.cpp << "\n";
+    out << "// location: " << location << "\n";
+    out << "// C++ name: " << _i.cpp << "\n";
   }
 };
 
@@ -79,7 +77,7 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     if (isAnonStruct(t)) return;
 
     SubOutputs out(_out);
-    preamble(out);
+    preamble(out.hf());
 
     bool replacesInternal = false;
     if (const auto *tt = dyn_cast<TagType>(t->getUnqualifiedDesugaredType())) {
@@ -119,7 +117,8 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
     if (_d->isDeleted() || _d->isDeletedAsWritten()) return;
 
     SubOutputs out(_out);
-    preamble(out);
+    preamble(out.hf());
+    preamble(out.sf());
 
     try {
       QualType qr = d->getReturnType();
@@ -227,7 +226,7 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
   CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     if (d->isTemplated()) return;  // ignore unspecialized template decl
     SubOutputs out(_out);
-    preamble(out);
+    preamble(out.hf());
     // print only the forward declaration
     out.hf() << "#ifdef __cplusplus\n";
     out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
@@ -296,7 +295,7 @@ struct FunctionTemplateDeclWriter : public DeclWriter<FunctionTemplateDecl> {
 struct EnumDeclWriter : public DeclWriter<EnumDecl> {
   EnumDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     SubOutputs out(_out);
-    preamble(out);
+    preamble(out.hf());
 
     // try to figure out if C will have the correct type for the enum.
 

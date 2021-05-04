@@ -57,7 +57,7 @@ std::string IdentifierConfig::sanitize(const std::string &name) const {
   std::string result(name);
   std::string::size_type s;
   for (auto &pair : operator_map) {
-    std::string replace = c_separator + pair.second + c_separator;
+    std::string replace = c_separator + pair.second;
     while (1) {
       s = result.find(pair.first);
       if (s == std::string::npos) {
