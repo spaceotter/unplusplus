@@ -119,6 +119,16 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
     SubOutputs out(_out);
     preamble(out.hf());
     preamble(out.sf());
+    // dump the original c++ parameters
+    std::string s;
+    llvm::raw_string_ostream cxx_params(s);
+    cxx_params << "// (";
+    for (const auto *p : _d->parameters()) {
+      p->getType().print(cxx_params, cfg().PP, getName(p));
+    }
+    cxx_params << ")\n";
+    out.hf() << cxx_params.str();
+    out.sf() << cxx_params.str();
 
     try {
       QualType qr = d->getReturnType();
