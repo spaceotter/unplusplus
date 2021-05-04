@@ -19,14 +19,35 @@ using namespace clang;
 
 // clang-format off
 std::vector<std::pair<std::string, std::string>> operator_map = {
+  {"<=>", "twc"},
   {"!=", "ne"},
+  {"==", "eq"},
+  {"<=", "lte"},
+  {">=", "gte"},
+  {"<<", "lsh"},
+  {">>", "rsh"},
+  {"&&", "and"},
+  {"||", "or"},
+  {"++", "inc"},
+  {"--", "dec"},
+  {"->", "m"},
+  {",", "com"},
   {"+", "add"},
+  {"-", "sub"},
   {"*", "mul"},
   {"/", "div"},
-  {"-", "sub"},
+  {"%", "mod"},
+  {"^", "xorb"},
+  {"&", "andb"},
+  {"|", "orb"},
+  {"~", "notb"},
+  {"!", "not"},
   {"=", "set"},
+  {"<", "lt"},
+  {">", "gt"},
   {"()", "call"},
   {"[]", "idx"},
+  {"\"\"", "lit"},
   {" ", ""},
   {".", "dot"}
 };
@@ -63,7 +84,15 @@ static void printCTemplateArg(std::ostream &os, QualType QT, const IdentifierCon
     printCTemplateArg(os, QT->getPointeeType(), cfg);
     os << "_ref";
   } else {
-    os << cfg.getCName(QT, "", false);
+    std::string name = cfg.getCName(QT, "", false);
+    std::string::size_type s;
+    while (1) {
+      s = name.find(' ');
+      if (s == std::string::npos)
+        break;
+      name.replace(s, 1, "_");
+    }
+    os << name;
   }
 }
 
@@ -183,6 +212,8 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
   if (!ctor && !dtor) {
     if (!first) os << c_separator;
     std::string name = getName(d);
+    if (name.find("operator") == 0)
+      name = sanitize(name);
     if (name.empty()) {
       if (isa<EnumDecl>(d))
         os << "<anonymous>";
@@ -203,7 +234,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
     }
   }
 
-  return sanitize(os.str());
+  return os.str();
 }
 
 std::string IdentifierConfig::getCName(const Type *t, const std::string &name, bool root) const {
