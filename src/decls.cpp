@@ -79,15 +79,30 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     SubOutputs out(_out);
     preamble(out);
 
-    // need to add a forward declaration if the target type is a struct - it may not have been
-    // declared already.
+    bool replacesInternal = false;
+    if (const auto *tt = dyn_cast<TagType>(t->getUnqualifiedDesugaredType())) {
+      const TagDecl *td = tt->getDecl();
+      if (isLibraryInternal(td)) {
+        // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
+        // refer to it. Substitute the name of this typedef instead, and forward declare the missing
+        // type.
+        Identifier::ids[td] = _i;
+        replacesInternal = true;
+      }
+    }
+
     try {
+      // need to add a forward declaration if the target type is a struct - it may not have been
+      // declared already.
       _dh.forward(t);
       Identifier ti(t, Identifier(_i.c, cfg()), cfg());
       out.hf() << "#ifdef __cplusplus\n";
       out.hf() << "typedef " << ti.cpp << ";\n";
       out.hf() << "#else\n";
-      out.hf() << "typedef " << ti.c << ";\n";
+      if (replacesInternal)
+        out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
+      else
+        out.hf() << "typedef " << ti.c << ";\n";
       out.hf() << "#endif // __cplusplus\n\n";
     } catch (const mangling_error err) {
       std::cerr << "Error: " << err.what() << std::endl;

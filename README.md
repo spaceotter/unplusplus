@@ -38,6 +38,8 @@ to avoid issues with system header or ABI incompatibility.
 * Functions declarations with arguments without a provided name are given generated ones.
 * Enumeration values are copied to the output.
 * Enumerations with a non-int type are generated as a bunch of macros.
+* Some types are considered internal to the standard C++ library. These are filtered out, and are
+  referred to using a typedef if one appears later.
 
 ## Limitations
 
