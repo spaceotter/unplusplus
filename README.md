@@ -5,8 +5,6 @@ source code for a C++ library from a C++ header, that contains stubs with C link
 usage of C++ features from C, as described below. The expected use case is to allow a C-only foreign
 function interface (FFI) to use a C++ library.
 
-The project is not ready for general use yet.
-
 ## Workflow:
 1. Build the target C++ library.
 2. Create a header with all the desired parts of the target library included.
@@ -41,8 +39,12 @@ to avoid issues with system header or ABI incompatibility.
 * Some types are considered internal to the standard C++ library. These are filtered out, and are
   referred to using a typedef if one appears later.
 * A constant extern *pointer* is emitted for global variables, which points to the variable.
+* A struct that mirrors the layout of the C++ type is emitted to allow direct access to fields.
 
 ## Limitations
 
-Many C++ features are not yet supported. Member access is planned, possibly direct access to vtables
-or some other way to override virtual methods.
+The project is not ready for general use yet.
+
+* Some C++ features may not be supported.
+* Macros are not transferred.
+* The mirror structs probably aren't generated correctly for alignment.
