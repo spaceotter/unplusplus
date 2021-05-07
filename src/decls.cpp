@@ -284,6 +284,23 @@ struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
         _out.sf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ") {\n";
         _out.sf() << "  delete " << cfg()._this << ";\n}\n\n";
       }
+      if (_d->hasDefaultConstructor()) {
+        std::string name = _i.c;
+        name.insert(cfg()._root.size(), cfg()._ctor + "array_");
+        Identifier sizet(_d->getASTContext().getSizeType(), Identifier("length"), cfg());
+        _out.hf() << "// Array constructor of " << _i.cpp << "\n";
+        _out.sf() << "// Array constructor of " << _i.cpp << "\n";
+        _out.hf() << _i.c << " *" << name << "(" << sizet.c << ");\n\n";
+        _out.sf() << _i.c << " *" << name << "(" << sizet.c << ") {\n";
+        _out.sf() << "  return new " << _i.cpp << "[length];\n}\n\n";
+        name = _i.c;
+        name.insert(cfg()._root.size(), cfg()._dtor + "array_");
+        _out.hf() << "// Array destructor of " << _i.cpp << "\n";
+        _out.sf() << "// Array destructor of " << _i.cpp << "\n";
+        _out.hf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ");\n\n";
+        _out.sf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ") {\n";
+        _out.sf() << "  delete[] " << cfg()._this << ";\n}\n\n";
+      }
     } else {
       std::string warn = "Warning: Class " + _i.cpp + " lacks a definition\n";
       std::cerr << warn;
