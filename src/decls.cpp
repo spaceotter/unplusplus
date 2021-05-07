@@ -4,6 +4,7 @@
  */
 
 #include "decls.hpp"
+#include "cxxrecord.hpp"
 
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/DeclFriend.h>
@@ -43,21 +44,6 @@ void DeclHandler::forward(const QualType &qt) {
     std::cerr << "Error: couldn't ensure that type `" << ss.str() << "` is declared." << std::endl;
   }
 }
-
-template <class T>
-struct DeclWriter : public DeclWriterBase {
-  typedef T type;
-  const T *_d;
-  Identifier _i;
-
-  DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _dh.cfg()) {}
-
-  void preamble(std::ostream &out) {
-    std::string location = _d->getLocation().printToString(_d->getASTContext().getSourceManager());
-    out << "// location: " << location << "\n";
-    out << "// C++ name: " << _i.cpp << "\n";
-  }
-};
 
 static bool isAnonStruct(const QualType &qt) {
   const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
@@ -228,83 +214,6 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
     } catch (const mangling_error err) {
       std::cerr << "Error: " << err.what() << std::endl;
       out.hf() << "// ERROR: " << err.what() << "\n\n";
-    }
-  }
-};
-
-struct CXXRecordDeclWriter : public DeclWriter<CXXRecordDecl> {
-  CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
-    if (d->isTemplated()) return;  // ignore unspecialized template decl
-    SubOutputs out(_out);
-    preamble(out.hf());
-    // print only the forward declaration
-    out.hf() << "#ifdef __cplusplus\n";
-    out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
-    out.hf() << "#else\n";
-    out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
-    out.hf() << "#endif // __cplusplus\n\n";
-    // make sure this gets fully instantiated later
-    if (dyn_cast<ClassTemplateSpecializationDecl>(d) && !_d->hasDefinition()) {
-      _dh.addTemplate(_i.cpp);
-    }
-  }
-  // writer destructors should run after forward declarations are written
-  virtual ~CXXRecordDeclWriter() override {
-    if (_d->hasDefinition()) {
-      bool any_ctor = false;
-      bool any_dtor = false;
-      for (const auto d : _d->decls()) {
-        if (d->getAccess() == AccessSpecifier::AS_public ||
-            d->getAccess() == AccessSpecifier::AS_none) {
-          if (const auto *nd = dyn_cast<NamedDecl>(d)) {
-            // Drop it if this decl will be ambiguous with a constructor
-            if (getName(nd) == getName(_d) && !isa<CXXConstructorDecl>(nd))
-              continue;
-          }
-          _dh.add(d);
-        }
-        if (isa<CXXConstructorDecl>(d)) any_ctor = true;
-        if (isa<CXXDestructorDecl>(d)) any_dtor = true;
-      }
-      if (!any_ctor && _d->hasDefaultConstructor()) {
-        std::string name = _i.c;
-        name.insert(cfg()._root.size(), cfg()._ctor);
-        _out.hf() << "// Implicit constructor of " << _i.cpp << "\n";
-        _out.sf() << "// Implicit constructor of " << _i.cpp << "\n";
-        _out.hf() << _i.c << " *" << name << "();\n\n";
-        _out.sf() << _i.c << " *" << name << "() {\n";
-        _out.sf() << "  return new " << _i.cpp << "();\n}\n\n";
-      }
-      if (!any_dtor) {
-        std::string name = _i.c;
-        name.insert(cfg()._root.size(), cfg()._dtor);
-        _out.hf() << "// Implicit destructor of " << _i.cpp << "\n";
-        _out.sf() << "// Implicit destructor of " << _i.cpp << "\n";
-        _out.hf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ");\n\n";
-        _out.sf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ") {\n";
-        _out.sf() << "  delete " << cfg()._this << ";\n}\n\n";
-      }
-      if (_d->hasDefaultConstructor()) {
-        std::string name = _i.c;
-        name.insert(cfg()._root.size(), cfg()._ctor + "array_");
-        Identifier sizet(_d->getASTContext().getSizeType(), Identifier("length"), cfg());
-        _out.hf() << "// Array constructor of " << _i.cpp << "\n";
-        _out.sf() << "// Array constructor of " << _i.cpp << "\n";
-        _out.hf() << _i.c << " *" << name << "(" << sizet.c << ");\n\n";
-        _out.sf() << _i.c << " *" << name << "(" << sizet.c << ") {\n";
-        _out.sf() << "  return new " << _i.cpp << "[length];\n}\n\n";
-        name = _i.c;
-        name.insert(cfg()._root.size(), cfg()._dtor + "array_");
-        _out.hf() << "// Array destructor of " << _i.cpp << "\n";
-        _out.sf() << "// Array destructor of " << _i.cpp << "\n";
-        _out.hf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ");\n\n";
-        _out.sf() << "void " << name << "(" << _i.c << " *" << cfg()._this << ") {\n";
-        _out.sf() << "  delete[] " << cfg()._this << ";\n}\n\n";
-      }
-    } else {
-      std::string warn = "Warning: Class " + _i.cpp + " lacks a definition\n";
-      std::cerr << warn;
-      _out.hf() << "// " << warn << "\n";
     }
   }
 };

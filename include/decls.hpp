@@ -44,4 +44,20 @@ class DeclWriterBase {
   const Outputs &out() const { return _out; }
 };
 
+template <class T>
+class DeclWriter : public DeclWriterBase {
+ protected:
+  typedef T type;
+  const T *_d;
+  Identifier _i;
+
+ public:
+  DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _dh.cfg()) {}
+
+  void preamble(std::ostream &out) {
+    std::string location = _d->getLocation().printToString(_d->getASTContext().getSourceManager());
+    out << "// location: " << location << "\n";
+    out << "// C++ name: " << _i.cpp << "\n";
+  }
+};
 }  // namespace unplusplus
