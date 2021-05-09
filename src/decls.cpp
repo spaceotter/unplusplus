@@ -39,6 +39,7 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     preamble(out.hf());
 
     bool replacesInternal = false;
+    std::string keyword;
     if (const auto *tt = dyn_cast<TagType>(t->getUnqualifiedDesugaredType())) {
       const TagDecl *td = tt->getDecl();
       out.hf() << "// underlying: " << cfg().getCXXQualifiedName(td) << "\n";
@@ -47,6 +48,12 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
       // refer to it. Substitute the name of this typedef instead, and forward declare the missing
       // type.
       replacesInternal = _dh.renameInternal(td, _i);
+      if (td->isUnion())
+        keyword = "union";
+      else if (td->isEnum())
+        keyword = "enum";
+      else
+        keyword = "struct";
     } else {
       out.hf() << "// TCN " << t->getUnqualifiedDesugaredType()->getTypeClassName() << "\n";
     }
@@ -58,7 +65,7 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     if (replacesInternal) {
       out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
       out.hf() << "#else\n";
-      out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
+      out.hf() << "typedef " << keyword << " " << _i.c << cfg()._struct << " " << _i.c << ";\n";
     } else {
       Identifier ti(t, Identifier(_i.c, cfg()), cfg());
       out.hf() << "typedef " << ti.cpp << ";\n";
@@ -301,6 +308,7 @@ void DeclHandler::forward(const QualType &qt) {
 }
 
 void DeclHandler::forward(const Decl *d) {
+  if (!d) return;
   if (_decls.count(d)) return;
   _decls.emplace(d);
   // skip if any previous declaration of the same thing was already processed
@@ -352,14 +360,34 @@ void DeclHandler::forward(const Decl *d) {
       forward(sd->getTargetDecl());
     else if (const auto *sd = dyn_cast<UsingDecl>(d)) {
       const NestedNameSpecifier *nn = sd->getQualifier();
+      std::string unhandled;
       switch (nn->getKind()) {
+        case NestedNameSpecifier::Identifier:
+          unhandled = "Identifier";
+          break;
+        case NestedNameSpecifier::Namespace:
+          forward(nn->getAsNamespace());
+          break;
+        case NestedNameSpecifier::NamespaceAlias:
+          forward(nn->getAsNamespaceAlias());
+          break;
         case NestedNameSpecifier::TypeSpec:
+        case NestedNameSpecifier::TypeSpecWithTemplate:
           forward(QualType(nn->getAsType(), 0));
           break;
-        default:
-          std::cerr << "Warning: Unhandled Using Declaration" << std::endl;
+        case NestedNameSpecifier::Global:
+          unhandled = "Global";
+          break;
+        case NestedNameSpecifier::Super:
+          unhandled = "Super";
           break;
       }
+
+      if (unhandled.size())
+        std::cerr << "Warning: Unhandled Using Declaration " << cfg().getCXXQualifiedName(sd)
+                  << " of kind " << unhandled << " at: "
+                  << d->getLocation().printToString(d->getASTContext().getSourceManager())
+                  << std::endl;
     } else if (const auto *sd = dyn_cast<NamespaceAliasDecl>(d))
       forward(sd->getNamespace());
     else if (const auto *sd = dyn_cast<FriendDecl>(d)) {

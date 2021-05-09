@@ -427,7 +427,7 @@ std::string IdentifierConfig::getCXXQualifiedName(const clang::NamedDecl *d) con
 const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
   if (getName(d).empty()) {
     // try to find a typedef that is naming this anonymous declaration
-    if (const auto *tnext = dyn_cast<TypedefDecl>(d->getNextDeclInContext())) {
+    if (const auto *tnext = dyn_cast_or_null<TypedefDecl>(d->getNextDeclInContext())) {
       if (const auto *tagt =
               dyn_cast<TagType>(tnext->getUnderlyingType()->getUnqualifiedDesugaredType())) {
         const NamedDecl *tagd = tagt->getDecl()->getUnderlyingDecl();

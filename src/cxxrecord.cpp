@@ -25,11 +25,16 @@ CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclW
     _dh.forward(ctsd->getTemplateArgs().asArray());
   }
 
+  if (_d->isUnion())
+    _keyword = "union";
+  else
+    _keyword = "struct";
+
   // print only the forward declaration
   out.hf() << "#ifdef __cplusplus\n";
   out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
   out.hf() << "#else\n";
-  out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
+  out.hf() << "typedef " << _keyword << " " << _i.c << cfg()._struct << " " << _i.c << ";\n";
   out.hf() << "#endif // __cplusplus\n\n";
 }
 
@@ -118,7 +123,7 @@ void CXXRecordDeclWriter::writeMembers() {
   if (_wroteMembers) return;
   SubOutputs out(_out);
   out.hf() << "// Members of type " << _i.cpp << "\n";
-  out.hf() << "struct " << _i.c << cfg()._struct << " {\n";
+  out.hf() << _keyword << " " << _i.c << cfg()._struct << " {\n";
   // The procedure here has to mimic clang's RecordLayoutBuilder.cpp to order the fields of the base
   // classes correctly. It may not work with the Microsoft ABI.
   _d->getIndirectPrimaryBases(_indirect);
@@ -130,10 +135,10 @@ void CXXRecordDeclWriter::writeMembers() {
   }
   out.hf() << "};\n";
   out.hf() << "#ifdef __cplusplus\n";
-  out.hf() << "static_assert(sizeof(struct " << _i.c << cfg()._struct << ") == sizeof(" << _i.cpp
-           << "), \"Size of C struct must match C++\");\n";
+  out.hf() << "static_assert(sizeof(" << _keyword << " " << _i.c << cfg()._struct << ") == sizeof("
+           << _i.cpp << "), \"Size of C struct must match C++\");\n";
   out.hf() << "#else\n";
-  out.hf() << "_Static_assert(sizeof(struct " << _i.c << cfg()._struct
+  out.hf() << "_Static_assert(sizeof(" << _keyword << " " << _i.c << cfg()._struct
            << ") == " << _d->getASTContext().getTypeSizeInChars(_d->getTypeForDecl()).getQuantity()
            << ", \"Size of C struct must match C++\");\n";
   out.hf() << "#endif\n\n";
