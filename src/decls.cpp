@@ -4,17 +4,17 @@
  */
 
 #include "decls.hpp"
-#include "cxxrecord.hpp"
 
 #include <clang/AST/ASTContext.h>
-#include <clang/AST/DeclFriend.h>
 #include <clang/AST/DeclCXX.h>
+#include <clang/AST/DeclFriend.h>
 #include <clang/AST/DeclTemplate.h>
 #include <clang/Basic/SourceManager.h>
 #include <llvm/ADT/TypeSwitch.h>
 
 #include <sstream>
 
+#include "cxxrecord.hpp"
 #include "identifier.hpp"
 
 using namespace unplusplus;
@@ -297,13 +297,13 @@ struct VarDeclWriter : DeclWriter<VarDecl> {
     preamble(out.hf());
     preamble(out.sf());
 
-    //out.hf() << "#ifdef __cplusplus\n";
+    // out.hf() << "#ifdef __cplusplus\n";
     QualType ptr = _d->getASTContext().getPointerType(_d->getType());
     _dh.forward(ptr);
     ptr.addConst();
     Identifier v(ptr, _i, cfg());
     out.hf() << "extern " << v.c << ";\n\n";
-    //out.hf() << "#ifndef __cplusplus\n";
+    // out.hf() << "#ifndef __cplusplus\n";
 
     out.sf() << v.c << " = &(" << _i.cpp << ");\n\n";
   }
@@ -357,7 +357,7 @@ void DeclHandler::add(const Decl *d) {
       add(sd->getTargetDecl());
     else if (const auto *sd = dyn_cast<UsingDecl>(d)) {
       const NestedNameSpecifier *nn = sd->getQualifier();
-      switch(nn->getKind()) {
+      switch (nn->getKind()) {
         case NestedNameSpecifier::TypeSpec:
           forward(QualType(nn->getAsType(), 0));
           break;

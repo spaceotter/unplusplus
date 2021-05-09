@@ -88,8 +88,7 @@ static void printCTemplateArg(std::ostream &os, QualType QT, const IdentifierCon
     std::string::size_type s;
     while (1) {
       s = name.find(' ');
-      if (s == std::string::npos)
-        break;
+      if (s == std::string::npos) break;
       name.replace(s, 1, "_");
     }
     os << name;
@@ -97,7 +96,8 @@ static void printCTemplateArg(std::ostream &os, QualType QT, const IdentifierCon
 }
 
 // mirror TemplateArgument::print
-static void printCTemplateArg(std::ostream &os, const TemplateArgument &Arg, const IdentifierConfig &cfg) {
+static void printCTemplateArg(std::ostream &os, const TemplateArgument &Arg,
+                              const IdentifierConfig &cfg) {
   switch (Arg.getKind()) {
     case TemplateArgument::Type: {
       // FIXME SubPolicy.SuppressStronglifetime = true;
@@ -212,8 +212,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
   if (!ctor && !dtor) {
     if (!first) os << c_separator;
     std::string name = getName(d);
-    if (name.find("operator") == 0)
-      name = sanitize(name);
+    if (name.find("operator") == 0) name = sanitize(name);
     if (name.empty()) {
       if (isa<EnumDecl>(d))
         os << "<anonymous>";

@@ -5,9 +5,10 @@
 
 #pragma once
 
-#include "decls.hpp"
-#include <clang/AST/DeclCXX.h>
 #include <clang/AST/CXXInheritance.h>
+#include <clang/AST/DeclCXX.h>
+
+#include "decls.hpp"
 
 namespace unplusplus {
 struct CXXRecordDeclWriter : public DeclWriter<clang::CXXRecordDecl> {
@@ -21,8 +22,9 @@ struct CXXRecordDeclWriter : public DeclWriter<clang::CXXRecordDecl> {
   void writeFields(Outputs &out, const clang::CXXRecordDecl *d);
   void writeVirtualBases(Outputs &out, const clang::CXXRecordDecl *d);
   void writeNonVirtualBases(Outputs &out, const clang::CXXRecordDecl *d);
+
  public:
   CXXRecordDeclWriter(const type *d, DeclHandler &dh);
   virtual ~CXXRecordDeclWriter() override;
 };
-}
+}  // namespace unplusplus

@@ -5,7 +5,7 @@ struct Too {
 struct Foo : public Too {
   long cat;
   Foo(long c) : cat(c) {}
-  ~Foo() {};
+  ~Foo(){};
   virtual int f(Foo b) const { return b.cat + cat; };
 };
 struct Bar : public virtual Foo {

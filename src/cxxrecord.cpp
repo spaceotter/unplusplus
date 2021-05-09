@@ -5,9 +5,9 @@
 
 #include "cxxrecord.hpp"
 
-#include <clang/AST/RecordLayout.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/DeclTemplate.h>
+#include <clang/AST/RecordLayout.h>
 
 using namespace unplusplus;
 using namespace clang;
