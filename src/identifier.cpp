@@ -361,15 +361,20 @@ static bool isLibraryInternal(QualType QT) {
 }
 
 bool unplusplus::isLibraryInternal(const clang::NamedDecl *ND) {
+  if (!ND) return false;
+
+  // If a library internal was given an external name by a typedef, don't consider it internal
+  // anymore.
+  if (Identifier::ids.count(ND)) return false;
+
   std::string name = getName(ND);
 
   if (name == "__gnu_cxx" || name == "__cxxabiv1") return true;
 
   const DeclContext *Ctx = ND->getDeclContext();
 
-  if (Ctx)
-    if (const auto *NCtx = dyn_cast<NamedDecl>(Ctx))
-      if (name[0] == '_' && getName(NCtx) == "std") return true;
+  if (const auto *NCtx = dyn_cast_or_null<NamedDecl>(Ctx))
+    if (name[0] == '_' && getName(NCtx) == "std") return true;
 
   if (const auto *td = dyn_cast<ClassTemplateSpecializationDecl>(ND)) {
     for (const auto &Arg : td->getTemplateArgs().asArray()) {
@@ -394,8 +399,7 @@ bool unplusplus::isLibraryInternal(const clang::NamedDecl *ND) {
     }
   }
 
-  if (Ctx)
-    if (const auto *NCtx = dyn_cast<NamedDecl>(Ctx)) return isLibraryInternal(NCtx);
+  if (const auto *NCtx = dyn_cast_or_null<NamedDecl>(Ctx)) return isLibraryInternal(NCtx);
 
   return false;
 }
