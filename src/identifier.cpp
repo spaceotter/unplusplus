@@ -140,6 +140,14 @@ void IdentifierConfig::printCTemplateArgs(std::ostream &os,
 
 // closely follows the NamedDecl::printQualifiedName method
 std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) const {
+  if (Identifier::ids.count(d)) {
+    return root ? Identifier::ids.at(d).c : Identifier::ids.at(d).c.substr(_root.size());
+  }
+
+  if (isLibraryInternal(d)) {
+    throw mangling_error("Library internal " + getCXXQualifiedName(d));
+  }
+
   std::stringstream os;
   const DeclContext *Ctx = d->getDeclContext();
   if (Ctx->isFunctionOrMethod()) {
@@ -325,10 +333,7 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
       dups.emplace(c);
     }
 
-    clang::SmallString<128> Buf;
-    llvm::raw_svector_ostream ArgOS(Buf);
-    d->getNameForDiagnostic(ArgOS, cfg.PP, true);
-    cpp = ArgOS.str().str();
+    cpp = cfg.getCXXQualifiedName(d);
 
     ids.emplace(std::make_pair(orig, *this));
   }
@@ -347,35 +352,50 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   cpp = ss.str();
 }
 
-bool unplusplus::isLibraryInternal(const clang::NamedDecl *d) {
-  const DeclContext *Ctx = d->getDeclContext();
-  SmallVector<const DeclContext *, 8> Contexts;
-
-  // Collect named contexts.
-  while (Ctx) {
-    if (isa<NamedDecl>(Ctx)) Contexts.push_back(Ctx);
-    Ctx = Ctx->getParent();
+static bool isLibraryInternal(QualType QT) {
+  while (QT->isReferenceType() || QT->isPointerType()) QT = QT->getPointeeType();
+  if (const auto *tt = dyn_cast<TagType>(QT->getUnqualifiedDesugaredType())) {
+    if (isLibraryInternal(tt->getDecl())) return true;
   }
+  return false;
+}
 
-  // FIXME: A hack to filter out internal-only parts of the standard library
-  if (!Contexts.empty()) {
-    if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 1))) {
-      std::string root = ND->getDeclName().getAsString();
-      if (root == "__gnu_cxx") {
-        return true;
-      } else if (root == "__cxxabiv1") {
-        return true;
-      }
-      if (root == "std" && Contexts.size() > 1) {
-        if (const auto *ND = dyn_cast<NamedDecl>(*(Contexts.end() - 2))) {
-          std::string root = ND->getDeclName().getAsString();
-          if (root[0] == '_') {
-            return true;
-          }
-        }
+bool unplusplus::isLibraryInternal(const clang::NamedDecl *ND) {
+  std::string name = getName(ND);
+
+  if (name == "__gnu_cxx" || name == "__cxxabiv1") return true;
+
+  const DeclContext *Ctx = ND->getDeclContext();
+
+  if (Ctx)
+    if (const auto *NCtx = dyn_cast<NamedDecl>(Ctx))
+      if (name[0] == '_' && getName(NCtx) == "std") return true;
+
+  if (const auto *td = dyn_cast<ClassTemplateSpecializationDecl>(ND)) {
+    for (const auto &Arg : td->getTemplateArgs().asArray()) {
+      switch (Arg.getKind()) {
+        case TemplateArgument::Type: {
+          QualType qt = Arg.getAsType();
+          if (::isLibraryInternal(Arg.getAsType())) return true;
+        } break;
+        case TemplateArgument::Declaration:
+          if (isLibraryInternal(Arg.getAsDecl())) return true;
+          break;
+        default:
+          break;
       }
     }
   }
+
+  if (const auto *FD = dyn_cast<FunctionDecl>(ND)) {
+    if (::isLibraryInternal(FD->getReturnType())) return true;
+    for (const auto *PD : FD->parameters()) {
+      if (::isLibraryInternal(PD->getType())) return true;
+    }
+  }
+
+  if (Ctx)
+    if (const auto *NCtx = dyn_cast<NamedDecl>(Ctx)) return isLibraryInternal(NCtx);
 
   return false;
 }
@@ -391,6 +411,13 @@ std::string unplusplus::getName(const NamedDecl *d) {
     d->printName(NameOS);
     return NameBuffer.str().str();
   }
+}
+
+std::string IdentifierConfig::getCXXQualifiedName(const clang::NamedDecl *d) const {
+  std::string s;
+  llvm::raw_string_ostream ArgOS(s);
+  d->getNameForDiagnostic(ArgOS, PP, true);
+  return ArgOS.str();
 }
 
 const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {

@@ -29,8 +29,6 @@ static bool isAnonStruct(const QualType &qt) {
   return false;
 }
 
-static std::unordered_set<const TagDecl *> renamedInternals;
-
 struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
   TypedefDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     const QualType &t = d->getUnderlyingType();
@@ -43,33 +41,31 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     bool replacesInternal = false;
     if (const auto *tt = dyn_cast<TagType>(t->getUnqualifiedDesugaredType())) {
       const TagDecl *td = tt->getDecl();
-      if (!renamedInternals.count(td) && isLibraryInternal(td)) {
-        // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
-        // refer to it. Substitute the name of this typedef instead, and forward declare the missing
-        // type.
-        Identifier::ids[td] = _i;
-        replacesInternal = true;
-        renamedInternals.emplace(td);
-      }
+      out.hf() << "// underlying: " << cfg().getCXXQualifiedName(td) << "\n";
+      out.hf() << "// internal: " << isLibraryInternal(td) << "\n";
+      // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
+      // refer to it. Substitute the name of this typedef instead, and forward declare the missing
+      // type.
+      replacesInternal = _dh.renameInternal(td, _i);
+    } else {
+      out.hf() << "// TCN " << t->getUnqualifiedDesugaredType()->getTypeClassName() << "\n";
     }
 
-    try {
-      // need to add a forward declaration if the target type is a struct - it may not have been
-      // declared already.
-      _dh.forward(t);
+    // need to add a forward declaration if the target type is a struct - it may not have been
+    // declared already.
+    _dh.forward(t);
+    out.hf() << "#ifdef __cplusplus\n";
+    if (replacesInternal) {
+      out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
+      out.hf() << "#else\n";
+      out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
+    } else {
       Identifier ti(t, Identifier(_i.c, cfg()), cfg());
-      out.hf() << "#ifdef __cplusplus\n";
       out.hf() << "typedef " << ti.cpp << ";\n";
       out.hf() << "#else\n";
-      if (replacesInternal)
-        out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
-      else
-        out.hf() << "typedef " << ti.c << ";\n";
-      out.hf() << "#endif // __cplusplus\n\n";
-    } catch (const mangling_error err) {
-      std::cerr << "Error: " << err.what() << std::endl;
-      out.hf() << "// ERROR: " << err.what() << "\n\n";
+      out.hf() << "typedef " << ti.c << ";\n";
     }
+    out.hf() << "#endif // __cplusplus\n\n";
   }
 };
 
@@ -379,16 +375,16 @@ void DeclHandler::forward(const Decl *d) {
       forward(sd->getNominatedNamespace());
     else if (const auto *sd = dyn_cast<NamedDecl>(d)) {
       std::cerr << "Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
-                << sd->getQualifiedNameAsString() << std::endl;
+                << cfg().getCXXQualifiedName(sd) << std::endl;
       _out.hf() << "// Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
-                << sd->getQualifiedNameAsString() << "\n\n";
+                << cfg().getCXXQualifiedName(sd) << "\n\n";
     } else {
       std::cerr << "Warning: Ignoring unnamed Decl of kind " << d->getDeclKindName() << "\n";
     }
   } catch (const mangling_error err) {
     std::string name = "<none>";
     if (const auto *sd = dyn_cast<NamedDecl>(d)) {
-      name = sd->getQualifiedNameAsString();
+      name = cfg().getCXXQualifiedName(sd);
     }
     std::cerr << "Warning: Ignoring " << err.what() << " " << name << " at "
               << d->getLocation().printToString(d->getASTContext().getSourceManager()) << "\n";
@@ -457,4 +453,16 @@ void DeclHandler::finishTemplates(clang::Sema &S) {
       }
     }
   }
+}
+
+bool DeclHandler::renameInternal(const clang::NamedDecl *d, const Identifier &i) {
+  if (!_renamedInternals.count(d) && isLibraryInternal(d)) {
+    // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
+    // refer to it. Substitute the name of this typedef instead, and forward declare the missing
+    // type.
+    Identifier::ids[d] = i;
+    _renamedInternals.emplace(d);
+    return true;
+  }
+  return false;
 }

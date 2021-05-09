@@ -49,5 +49,9 @@ class SubOutputs : public Outputs {
   std::ostream &hf() override { return _hf; };
   std::ostream &sf() override { return _sf; };
   void addCHeader(const std::string &path) override { _parent.addCHeader(path); }
+  void erase() {
+    _hf.str("");
+    _sf.str("");
+  }
 };
 }  // namespace unplusplus

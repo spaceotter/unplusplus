@@ -34,7 +34,8 @@ CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclW
 }
 
 void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d) {
-  const ASTRecordLayout &layout = d->getASTContext().getASTRecordLayout(d);
+  const ASTContext &AC = _d->getASTContext();
+  const ASTRecordLayout &layout = AC.getASTRecordLayout(d);
 
   for (const auto *f : d->fields()) {
     QualType qt = f->getType();
@@ -47,12 +48,17 @@ void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d) {
       name += cfg().c_separator + std::to_string(i);
     }
 
+    if (qt->isRecordType() && isLibraryInternal(qt->getAsRecordDecl())) {
+      uint64_t size = AC.getTypeSizeInChars(qt).getQuantity();
+      qt = AC.getConstantArrayType(AC.CharTy, llvm::APInt(AC.getTypeSize(AC.getSizeType()), size),
+                                   nullptr, ArrayType::Normal, 0);
+    }
     Identifier fi(qt, Identifier(name, cfg()), cfg());
     out.hf() << "  " << fi.c;
     if (f->isBitField()) {
-      out.hf() << " : " << f->getBitWidthValue(d->getASTContext());
+      out.hf() << " : " << f->getBitWidthValue(AC);
     }
-    std::string location = f->getLocation().printToString(d->getASTContext().getSourceManager());
+    std::string location = f->getLocation().printToString(AC.getSourceManager());
     out.hf() << "; // " << f->getQualifiedNameAsString() << " at: " << location << "\n";
     _fields.emplace(name);
   }
