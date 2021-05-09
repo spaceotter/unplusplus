@@ -10,7 +10,6 @@
 #include <clang/Index/IndexingOptions.h>
 
 #include "decls.hpp"
-#include "iparseast.hpp"
 
 using namespace unplusplus;
 using namespace clang;
@@ -43,10 +42,7 @@ class UppAction : public ASTFrontendAction {
   virtual void ExecuteAction() override {
     ASTFrontendAction::ExecuteAction();
     CompilerInstance &CI = getCompilerInstance();
-    std::string T = _dh->templates();
-    IncrementalParseAST(CI.getSema(), T, "<templates>", CI.getFrontendOpts().ShowStats,
-                        CI.getFrontendOpts().SkipFunctionBodies);
-    _dh->finish();
+    _dh->finishTemplates(CI.getSema());
   }
 
  protected:

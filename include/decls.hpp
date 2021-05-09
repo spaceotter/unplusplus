@@ -6,44 +6,62 @@
 #pragma once
 
 #include <clang/AST/Decl.h>
+#include <clang/Sema/Sema.h>
+
+#include <queue>
 
 #include "outputs.hpp"
 
 namespace unplusplus {
 class DeclWriterBase;
-typedef std::unordered_map<const clang::Decl *, std::unique_ptr<DeclWriterBase>> DeclWriterMap;
+
 class DeclHandler {
   Outputs &_out;
-  DeclWriterMap _decls;
-  std::stringstream _templates;
+  std::unordered_set<const clang::Decl *> _decls;
+  std::queue<std::unique_ptr<DeclWriterBase>> _unfinished;
+  std::queue<const clang::RedeclarableTemplateDecl *> _templates;
+  std::queue<std::unique_ptr<DeclWriterBase>> _unfinished_templates;
   IdentifierConfig _cfg;
 
  public:
   DeclHandler(Outputs &out, const clang::ASTContext &_astc) : _out(out), _cfg(_astc) {}
-  void add(const clang::Decl *d);
   Outputs &out() { return _out; }
-  void finish();
-  std::string templates() const { return _templates.str(); }
-  void addTemplate(const std::string &name) {
-    _templates << "extern template class " << name << ";\n";
-  }
   const IdentifierConfig &cfg() const { return _cfg; }
-  // Ensure that a type is declared already
+
+  // Emit the forward declaration, then finish the declaration.
+  void add(const clang::Decl *d);
+
+  // Emit fully instantiated template specializations, and any additional specializations that were
+  // discovered while emitting the known ones.
+  void finishTemplates(clang::Sema &S);
+
+  // Ensure that a type is declared already. Emit the forward declaration if there is one.
   void forward(const clang::QualType &t);
+
+  // Emit only the forward declaration and save it for later.
+  void forward(const clang::Decl *d);
+
+  // Emit the forward declarations for the template arguments.
+  void forward(const llvm::ArrayRef<clang::TemplateArgument> &Args);
 };
 
+// The base class for Decl handlers that write to the output files.
 class DeclWriterBase {
  protected:
   DeclHandler &_dh;
   Outputs &_out;
 
  public:
+  // The constructor is supposed to emit only the forward declaration.
   DeclWriterBase(DeclHandler &dh) : _dh(dh), _out(dh.out()) {}
+  // The destructor emits any additional code other than the forward declaration.
   virtual ~DeclWriterBase() {}
+
   const IdentifierConfig &cfg() const { return _dh.cfg(); }
   const Outputs &out() const { return _out; }
 };
 
+// A helper template for DeclWriters that use a NamedDecl and an Identifier.
 template <class T>
 class DeclWriter : public DeclWriterBase {
  protected:
@@ -53,6 +71,7 @@ class DeclWriter : public DeclWriterBase {
 
  public:
   DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _dh.cfg()) {}
+  const T *decl() const { return _d; }
 
   void preamble(std::ostream &out) {
     std::string location = _d->getLocation().printToString(_d->getASTContext().getSourceManager());

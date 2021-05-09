@@ -18,6 +18,7 @@ struct mangling_error : public std::runtime_error {
   mangling_error(const std::string &what_arg) : std::runtime_error(what_arg) {}
 };
 
+// This class stores the settings for C name generation from C++ things.
 struct IdentifierConfig {
   IdentifierConfig(const clang::ASTContext &astc) : astc(astc), PP(astc.getLangOpts()) {}
   // these determine how flattened C names are assembled
@@ -42,8 +43,17 @@ struct IdentifierConfig {
   // get a type specifier that uses the mangled C names, and wraps the given name
   std::string getCName(const clang::Type *t, const std::string &name, bool root = true) const;
   std::string getCName(const clang::QualType &qt, std::string name, bool root = true) const;
+
+  // Prints an alternate mangling for template arguments
+  void printCTemplateArgs(std::ostream &os,
+                          const llvm::ArrayRef<clang::TemplateArgument> &Args) const;
+  // Prints an alternate mangling for type as a template argument
+  void printCTemplateArg(std::ostream &os, clang::QualType QT) const;
+  // Prints an alternate mangling for the template argument
+  void printCTemplateArg(std::ostream &os, const clang::TemplateArgument &Arg) const;
 };
 
+// A convenience class to keep the C and C++ names of something together.
 struct Identifier {
   // remember old identifiers to save time, they don't change
   static std::unordered_map<const clang::NamedDecl *, Identifier> ids;
@@ -62,10 +72,12 @@ struct Identifier {
   std::string cpp;  // the fully qualified C++ name
 };
 
-// a filter function to avoid some private library declarations
+// A filter function to avoid some private library declarations
 bool isLibraryInternal(const clang::NamedDecl *d);
+
 // Get the decl name, or overridden print operator
 std::string getName(const clang::NamedDecl *d);
+
 // If the NamedDecl is an anonymous struct or enum, get the typedef that is giving it a name.
 const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);
 }  // namespace unplusplus

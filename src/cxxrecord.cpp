@@ -13,22 +13,24 @@ using namespace unplusplus;
 using namespace clang;
 
 CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
-  if (d->isTemplated()) return;  // ignore unspecialized template decl
+  if (d->isTemplated()) {
+    std::cerr << "Warning: Ignored " << _i.cpp << std::endl;
+    return;  // ignore unspecialized template decl
+  }
   SubOutputs out(_out);
   preamble(out.hf());
+
+  if (const auto *ctsd = dyn_cast<ClassTemplateSpecializationDecl>(_d)) {
+    _dh.forward(ctsd->getSpecializedTemplate());
+    _dh.forward(ctsd->getTemplateArgs().asArray());
+  }
+
   // print only the forward declaration
   out.hf() << "#ifdef __cplusplus\n";
   out.hf() << "typedef " << _i.cpp << " " << _i.c << ";\n";
   out.hf() << "#else\n";
   out.hf() << "typedef struct " << _i.c << cfg()._struct << " " << _i.c << ";\n";
   out.hf() << "#endif // __cplusplus\n\n";
-  // make sure this gets fully instantiated later
-  if (dyn_cast<ClassTemplateSpecializationDecl>(d) && !_d->hasDefinition()) {
-    _dh.addTemplate(_i.cpp);
-  }
-  if (_d->hasDefinition()) {
-    writeMembers();
-  }
 }
 
 void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d) {
@@ -117,6 +119,9 @@ void CXXRecordDeclWriter::writeMembers() {
   writeNonVirtualBases(out, _d);
   writeFields(out, _d);
   writeVirtualBases(out, _d);
+  if (_d->isEmpty()) {
+    out.hf() << "  char __empty;\n";
+  }
   out.hf() << "};\n";
   out.hf() << "#ifdef __cplusplus\n";
   out.hf() << "static_assert(sizeof(struct " << _i.c << cfg()._struct << ") == sizeof(" << _i.cpp
@@ -144,7 +149,7 @@ CXXRecordDeclWriter::~CXXRecordDeclWriter() {
           // Drop it if this decl will be ambiguous with a constructor
           if (getName(nd) == getName(_d) && !isa<CXXConstructorDecl>(nd)) continue;
         }
-        _dh.add(d);
+        _dh.forward(d);
       }
       if (isa<CXXConstructorDecl>(d)) any_ctor = true;
       if (isa<CXXDestructorDecl>(d)) any_dtor = true;

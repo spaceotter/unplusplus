@@ -69,22 +69,19 @@ std::string IdentifierConfig::sanitize(const std::string &name) const {
   return result;
 }
 
-static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args,
-                               const IdentifierConfig &cfg);
-
-static void printCTemplateArg(std::ostream &os, QualType QT, const IdentifierConfig &cfg) {
+void IdentifierConfig::printCTemplateArg(std::ostream &os, QualType QT) const {
   if (QT.isLocalConstQualified()) {
     os << "const_";
     QT.removeLocalConst();
   }
   if (QT->isAnyPointerType()) {
-    printCTemplateArg(os, QT->getPointeeType(), cfg);
+    printCTemplateArg(os, QT->getPointeeType());
     os << "_ptr";
   } else if (QT->isReferenceType()) {
-    printCTemplateArg(os, QT->getPointeeType(), cfg);
+    printCTemplateArg(os, QT->getPointeeType());
     os << "_ref";
   } else {
-    std::string name = cfg.getCName(QT, "", false);
+    std::string name = getCName(QT, "", false);
     std::string::size_type s;
     while (1) {
       s = name.find(' ');
@@ -96,29 +93,28 @@ static void printCTemplateArg(std::ostream &os, QualType QT, const IdentifierCon
 }
 
 // mirror TemplateArgument::print
-static void printCTemplateArg(std::ostream &os, const TemplateArgument &Arg,
-                              const IdentifierConfig &cfg) {
+void IdentifierConfig::printCTemplateArg(std::ostream &os, const TemplateArgument &Arg) const {
   switch (Arg.getKind()) {
     case TemplateArgument::Type: {
       // FIXME SubPolicy.SuppressStronglifetime = true;
-      printCTemplateArg(os, Arg.getAsType(), cfg);
+      printCTemplateArg(os, Arg.getAsType());
       break;
     }
 
     case TemplateArgument::Declaration: {
       NamedDecl *ND = Arg.getAsDecl();
-      os << cfg.getCName(ND, false);
+      os << getCName(ND, false);
       break;
     }
 
     case TemplateArgument::Pack:
-      printCTemplateArgs(os, Arg.pack_elements(), cfg);
+      printCTemplateArgs(os, Arg.pack_elements());
       break;
 
     default:
       std::string Buf;
       llvm::raw_string_ostream ArgOS(Buf);
-      Arg.print(cfg.PP, ArgOS);
+      Arg.print(PP, ArgOS);
       ArgOS.flush();
       os << ArgOS.str();
       break;
@@ -126,17 +122,17 @@ static void printCTemplateArg(std::ostream &os, const TemplateArgument &Arg,
 }
 
 // replaces printTemplateArgumentList(os, TemplateArgs.asArray(), P);
-static void printCTemplateArgs(std::ostream &os, const ArrayRef<clang::TemplateArgument> &Args,
-                               const IdentifierConfig &cfg) {
+void IdentifierConfig::printCTemplateArgs(std::ostream &os,
+                                          const ArrayRef<clang::TemplateArgument> &Args) const {
   bool FirstArg = true;
   for (const auto &Arg : Args) {
     if (Arg.getKind() == TemplateArgument::Pack) {
-      if (Arg.pack_size() && !FirstArg) os << cfg.c_separator;
+      if (Arg.pack_size() && !FirstArg) os << c_separator;
     } else {
-      if (!FirstArg) os << cfg.c_separator;
+      if (!FirstArg) os << c_separator;
     }
 
-    printCTemplateArg(os, Arg, cfg);
+    printCTemplateArg(os, Arg);
 
     FirstArg = false;
   }
@@ -181,7 +177,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
       os << Spec->getName().str();
       const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
       os << c_separator;
-      printCTemplateArgs(os, TemplateArgs.asArray(), *this);
+      printCTemplateArgs(os, TemplateArgs.asArray());
     } else if (const auto *ND = dyn_cast<NamespaceDecl>(DC)) {
       if (ND->isAnonymousNamespace()) {
         throw mangling_error("Anonymous namespace");
@@ -229,7 +225,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
       l = t->getTemplateSpecializationArgs();
     if (l != nullptr) {
       os << c_separator;
-      printCTemplateArgs(os, l->asArray(), *this);
+      printCTemplateArgs(os, l->asArray());
     }
   }
 

@@ -28,7 +28,6 @@ set(SOURCE_FILES
     src/outputs.cpp
     src/action.cpp
     src/decls.cpp
-    src/iparseast.cpp
     src/cxxrecord.cpp)
 
 add_executable(unplusplus ${SOURCE_FILES})

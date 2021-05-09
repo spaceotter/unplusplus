@@ -20,31 +20,6 @@
 using namespace unplusplus;
 using namespace clang;
 
-void DeclHandler::forward(const QualType &qt) {
-  const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
-  if (t == nullptr) {
-    return;
-  } else if (const auto *tt = dyn_cast<TagType>(t)) {
-    add(tt->getDecl());
-  } else if (const auto *pt = dyn_cast<PointerType>(t)) {
-    forward(pt->getPointeeType());
-  } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
-    forward(pt->getPointeeType());
-  } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
-    forward(pt->getElementType());
-  } else if (qt->isBuiltinType()) {
-    return;
-  } else if (qt->isFunctionProtoType()) {
-    return;
-  } else {
-    std::string s;
-    llvm::raw_string_ostream ss(s);
-    qt.print(ss, cfg().PP);
-    ss.flush();
-    std::cerr << "Error: couldn't ensure that type `" << ss.str() << "` is declared." << std::endl;
-  }
-}
-
 static bool isAnonStruct(const QualType &qt) {
   const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
   if (const auto *tt = dyn_cast<TagType>(t)) {
@@ -109,8 +84,11 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
     std::string s;
     llvm::raw_string_ostream cxx_params(s);
     cxx_params << "// (";
+    bool first = true;
     for (const auto *p : _d->parameters()) {
+      if (!first) cxx_params << ", ";
       p->getType().print(cxx_params, cfg().PP, getName(p));
+      first = false;
     }
     cxx_params << ")\n";
     out.hf() << cxx_params.str();
@@ -127,7 +105,7 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
       const auto *method = dyn_cast<CXXMethodDecl>(d);
       if (method) {
         qp = _d->getASTContext().getRecordType(method->getParent());
-        _dh.forward(qp);
+        _dh.forward(method->getParent());
         if (method->isConst()) qp.addConst();
       }
       bool ctor = dyn_cast<CXXConstructorDecl>(d);
@@ -218,16 +196,6 @@ struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
   }
 };
 
-struct FunctionTemplateDeclWriter : public DeclWriter<FunctionTemplateDecl> {
-  FunctionTemplateDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {}
-
-  ~FunctionTemplateDeclWriter() {
-    for (auto as : _d->specializations()) {
-      _dh.add(as);
-    }
-  }
-};
-
 struct EnumDeclWriter : public DeclWriter<EnumDecl> {
   EnumDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
     SubOutputs out(_out);
@@ -297,26 +265,54 @@ struct VarDeclWriter : DeclWriter<VarDecl> {
     preamble(out.hf());
     preamble(out.sf());
 
-    // out.hf() << "#ifdef __cplusplus\n";
     QualType ptr = _d->getASTContext().getPointerType(_d->getType());
     _dh.forward(ptr);
     ptr.addConst();
     Identifier v(ptr, _i, cfg());
     out.hf() << "extern " << v.c << ";\n\n";
-    // out.hf() << "#ifndef __cplusplus\n";
 
     out.sf() << v.c << " = &(" << _i.cpp << ");\n\n";
   }
 };
 
-void DeclHandler::add(const Decl *d) {
-  // skip if this or any previous declaration of the same thing was already processed
-  const Decl *pd = d;
+void DeclHandler::forward(const QualType &qt) {
+  const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
+  if (t == nullptr) {
+    return;
+  } else if (const auto *tt = dyn_cast<TagType>(t)) {
+    forward(tt->getDecl());
+  } else if (const auto *pt = dyn_cast<PointerType>(t)) {
+    forward(pt->getPointeeType());
+  } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
+    forward(pt->getPointeeType());
+  } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
+    forward(pt->getElementType());
+  } else if (qt->isBuiltinType()) {
+    if (qt->isBooleanType()) {
+      _out.addCHeader("stdbool.h");
+    } else if (qt->isWideCharType()) {
+      _out.addCHeader("wchar.h");
+    }
+  } else if (qt->isFunctionProtoType()) {
+    return;
+  } else {
+    std::string s;
+    llvm::raw_string_ostream ss(s);
+    qt.print(ss, cfg().PP);
+    ss.flush();
+    std::cerr << "Error: couldn't ensure that type `" << ss.str() << "` is declared." << std::endl;
+  }
+}
+
+void DeclHandler::forward(const Decl *d) {
+  if (_decls.count(d)) return;
+  _decls.emplace(d);
+  // skip if any previous declaration of the same thing was already processed
+  const Decl *pd = d->getPreviousDecl();
   while (pd != nullptr) {
     if (_decls.count(pd)) return;
     pd = pd->getPreviousDecl();
   }
-  _decls[d] = nullptr;
 
   SourceManager &SM = d->getASTContext().getSourceManager();
   FileID FID = SM.getFileID(SM.getFileLoc(d->getLocation()));
@@ -334,27 +330,30 @@ void DeclHandler::add(const Decl *d) {
 
   try {
     if (const auto *sd = dyn_cast<TypedefDecl>(d))
-      _decls[d].reset(new TypedefDeclWriter(sd, *this));
-    else if (const auto *sd = dyn_cast<CXXRecordDecl>(d))
-      _decls[d].reset(new CXXRecordDeclWriter(sd, *this));
-    else if (const auto *sd = dyn_cast<FunctionDecl>(d))
-      _decls[d].reset(new FunctionDeclWriter(sd, *this));
+      _unfinished.emplace(new TypedefDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<FunctionTemplateDecl>(d))
-      _decls[d].reset(new FunctionTemplateDeclWriter(sd, *this));
+      _templates.push(sd);
+    else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))
+      _templates.push(sd);
+    else if (const auto *sd = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
+      _unfinished_templates.emplace(new CXXRecordDeclWriter(sd, *this));
+      _templates.push(sd->getSpecializedTemplate());
+    } else if (const auto *sd = dyn_cast<CXXRecordDecl>(d))
+      _unfinished.emplace(new CXXRecordDeclWriter(sd, *this));
+    else if (const auto *sd = dyn_cast<FunctionDecl>(d))
+      _unfinished.emplace(new FunctionDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<EnumDecl>(d))
-      _decls[d].reset(new EnumDeclWriter(sd, *this));
+      _unfinished.emplace(new EnumDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<VarDecl>(d))
-      _decls[d].reset(new VarDeclWriter(sd, *this));
+      _unfinished.emplace(new VarDeclWriter(sd, *this));
     else if (const auto *sd = dyn_cast<FieldDecl>(d))
       ;  // Ignore, fields are handled in the respective record
-    else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))
-      ;  // Ignore, the specializations are picked up elsewhere
     else if (const auto *sd = dyn_cast<AccessSpecDecl>(d))
       ;  // Ignore, access for members comes from getAccess
     else if (const auto *sd = dyn_cast<StaticAssertDecl>(d))
       ;  // Ignore
     else if (const auto *sd = dyn_cast<UsingShadowDecl>(d))
-      add(sd->getTargetDecl());
+      forward(sd->getTargetDecl());
     else if (const auto *sd = dyn_cast<UsingDecl>(d)) {
       const NestedNameSpecifier *nn = sd->getQualifier();
       switch (nn->getKind()) {
@@ -366,18 +365,18 @@ void DeclHandler::add(const Decl *d) {
           break;
       }
     } else if (const auto *sd = dyn_cast<NamespaceAliasDecl>(d))
-      add(sd->getNamespace());
+      forward(sd->getNamespace());
     else if (const auto *sd = dyn_cast<FriendDecl>(d)) {
       if (sd->getFriendDecl())
-        add(sd->getFriendDecl());
+        forward(sd->getFriendDecl());
       else if (sd->getFriendType())
         forward(sd->getFriendType()->getType());
     } else if (const auto *sd = dyn_cast<NamespaceDecl>(d))
-      for (const auto ssd : sd->decls()) add(ssd);
+      for (const auto ssd : sd->decls()) forward(ssd);
     else if (const auto *sd = dyn_cast<LinkageSpecDecl>(d))
-      for (const auto ssd : sd->decls()) add(ssd);
+      for (const auto ssd : sd->decls()) forward(ssd);
     else if (const auto *sd = dyn_cast<UsingDirectiveDecl>(d))
-      add(sd->getNominatedNamespace());
+      forward(sd->getNominatedNamespace());
     else if (const auto *sd = dyn_cast<NamedDecl>(d)) {
       std::cerr << "Warning: Unknown Decl kind " << sd->getDeclKindName() << " "
                 << sd->getQualifiedNameAsString() << std::endl;
@@ -396,15 +395,65 @@ void DeclHandler::add(const Decl *d) {
   }
 }
 
-void DeclHandler::finish() {
-  // destructing the writers may cause more decls to be processed.
-  bool any = true;
-  while (any) {
-    any = false;
-    for (auto &p : _decls) {
-      if (p.second) {
-        p.second.reset();
-        any = true;
+void DeclHandler::forward(const ArrayRef<clang::TemplateArgument> &Args) {
+  for (const auto &Arg : Args) {
+    switch (Arg.getKind()) {
+      case TemplateArgument::Type:
+        forward(Arg.getAsType());
+        break;
+      case TemplateArgument::Declaration:
+        forward(Arg.getAsDecl());
+        break;
+      case TemplateArgument::Pack:
+        forward(Arg.pack_elements());
+        break;
+      case TemplateArgument::Template:
+        forward(Arg.getAsTemplate().getAsTemplateDecl());
+        break;
+      default:
+        std::cerr << "Warning: can't forward template argument" << std::endl;
+        break;
+    }
+  }
+}
+
+void DeclHandler::add(const Decl *d) {
+  forward(d);
+  while (_unfinished.size()) {
+    _unfinished.pop();
+  }
+}
+
+void DeclHandler::finishTemplates(clang::Sema &S) {
+  while (_templates.size() || _unfinished_templates.size()) {
+    if (_templates.size()) {
+      if (const auto *ctd = dyn_cast<ClassTemplateDecl>(_templates.front())) {
+        for (const auto *ctsd : ctd->specializations()) {
+          add(ctsd);
+        }
+      } else if (const auto *ftd = dyn_cast<FunctionTemplateDecl>(_templates.front())) {
+        for (const auto *ftsd : ftd->specializations()) {
+          add(ftsd);
+        }
+      }
+      _templates.pop();
+    }
+    if (_unfinished_templates.size()) {
+      const CXXRecordDeclWriter *writer =
+          dynamic_cast<const CXXRecordDeclWriter *>(_unfinished_templates.front().get());
+      ClassTemplateSpecializationDecl *crd = const_cast<ClassTemplateSpecializationDecl *>(
+          dyn_cast<ClassTemplateSpecializationDecl>(writer->decl()));
+      // clang is "lazy" and doesn't add any members that weren't used. We can force them to be
+      // added.
+      if (!crd->hasDefinition()) {
+        SourceLocation L = crd->getLocation();
+        S.InstantiateClassTemplateSpecialization(L, crd, TSK_ExplicitInstantiationDeclaration);
+        S.InstantiateClassTemplateSpecializationMembers(L, crd,
+                                                        TSK_ExplicitInstantiationDeclaration);
+      }
+      _unfinished_templates.pop();
+      while (_unfinished.size()) {
+        _unfinished.pop();
       }
     }
   }
