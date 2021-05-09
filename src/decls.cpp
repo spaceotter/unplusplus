@@ -406,8 +406,15 @@ void DeclHandler::forward(const ArrayRef<clang::TemplateArgument> &Args) {
       case TemplateArgument::Template:
         forward(Arg.getAsTemplate().getAsTemplateDecl());
         break;
-      default:
-        std::cerr << "Warning: can't forward template argument" << std::endl;
+      case TemplateArgument::Null:
+      case TemplateArgument::NullPtr:
+      case TemplateArgument::Integral:
+        break;  // Ignore
+      case TemplateArgument::TemplateExpansion:
+        std::cerr << "Warning: can't forward template expansion" << std::endl;
+        break;
+      case TemplateArgument::Expression:
+        std::cerr << "Warning: can't forward expression" << std::endl;
         break;
     }
   }
