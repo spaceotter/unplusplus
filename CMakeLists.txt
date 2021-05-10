@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.20)
 project(unplusplus)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Find Clang resource directory with Clang executable.
 if(NOT CLANG_RESOURCE_DIR)
@@ -47,5 +49,8 @@ set(APP_BIN_DIR "${CMAKE_BINARY_DIR}/bin")
 set_target_properties(unplusplus PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${APP_BIN_DIR}"
     )
+
+set(UNPLUSPLUS_EXECUTABLE "${APP_BIN_DIR}/unplusplus")
+add_subdirectory(examples)
 
 install(TARGETS unplusplus DESTINATION bin)

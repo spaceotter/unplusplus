@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "clib-geom.h"
+#include "geom-clib.h"
 
 #ifdef __cplusplus
 #error "This is supposed to be compiled as C!"
