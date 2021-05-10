@@ -14,7 +14,7 @@ using namespace clang;
 
 CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
   if (d->isTemplated()) {
-    std::cerr << "Warning: Ignored " << _i.cpp << std::endl;
+    std::cerr << "Warning: Ignored templated class " << _i.cpp << std::endl;
     return;  // ignore unspecialized template decl
   }
   SubOutputs out(_out);
@@ -53,7 +53,8 @@ void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d) {
       name += cfg().c_separator + std::to_string(i);
     }
 
-    if (qt->isRecordType() && isLibraryInternal(qt->getAsRecordDecl())) {
+    if (qt->isRecordType() && (!qt->getAsRecordDecl()->isCompleteDefinition() ||
+                               isLibraryInternal(qt->getAsRecordDecl()))) {
       uint64_t size = AC.getTypeSizeInChars(qt).getQuantity();
       qt = AC.getConstantArrayType(AC.CharTy, llvm::APInt(AC.getTypeSize(AC.getSizeType()), size),
                                    nullptr, ArrayType::Normal, 0);
@@ -119,9 +120,7 @@ void CXXRecordDeclWriter::writeVirtualBases(Outputs &out, const CXXRecordDecl *d
   }
 }
 
-void CXXRecordDeclWriter::writeMembers() {
-  if (_wroteMembers) return;
-  SubOutputs out(_out);
+void CXXRecordDeclWriter::writeMembers(Outputs &out) {
   out.hf() << "// Members of type " << _i.cpp << "\n";
   out.hf() << _keyword << " " << _i.c << cfg()._struct << " {\n";
   // The procedure here has to mimic clang's RecordLayoutBuilder.cpp to order the fields of the base
@@ -142,15 +141,22 @@ void CXXRecordDeclWriter::writeMembers() {
            << ") == " << _d->getASTContext().getTypeSizeInChars(_d->getTypeForDecl()).getQuantity()
            << ", \"Size of C struct must match C++\");\n";
   out.hf() << "#endif\n\n";
-  _wroteMembers = true;
 }
 
 // writer destructors should run after forward declarations are written
 CXXRecordDeclWriter::~CXXRecordDeclWriter() {
-  if (_d->hasDefinition()) {
-    writeMembers();
-
+  if (_d->hasDefinition() && _d->isCompleteDefinition()) {
     SubOutputs out(_out);
+
+    if (_makeInstantiation) {
+      out.hf() << "#ifdef __cplusplus\n";
+      out.hf() << "extern template class " << _i.cpp << ";\n";
+      out.hf() << "#endif\n\n";
+      out.sf() << "template class " << _i.cpp << ";\n\n";
+    }
+
+    writeMembers(out);
+
     bool any_ctor = false;
     bool any_dtor = false;
     for (const auto d : _d->decls()) {

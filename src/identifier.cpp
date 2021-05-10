@@ -273,6 +273,8 @@ std::string IdentifierConfig::getCName(const Type *t, const std::string &name, b
       first = false;
     }
     c = getCName(pt->getReturnType(), "(" + name + ")(" + ss.str() + ")");
+  } else if (const auto *pt = dyn_cast<InjectedClassNameType>(t)) {
+    c = getCName(pt->getDecl(), root) + sname;
   } else {
     throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
   }

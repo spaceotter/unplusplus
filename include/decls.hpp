@@ -20,7 +20,7 @@ class DeclHandler {
   std::unordered_set<const clang::Decl *> _decls;
   std::unordered_set<const clang::NamedDecl *> _renamedInternals;
   std::queue<std::unique_ptr<DeclWriterBase>> _unfinished;
-  std::queue<const clang::RedeclarableTemplateDecl *> _templates;
+  std::queue<const clang::TemplateDecl *> _templates;
   std::queue<std::unique_ptr<DeclWriterBase>> _unfinished_templates;
   IdentifierConfig _cfg;
 

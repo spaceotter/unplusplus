@@ -20,6 +20,27 @@
 using namespace unplusplus;
 using namespace clang;
 
+static std::string TSKstring(TemplateSpecializationKind TSK) {
+  switch (TSK) {
+    case clang::TSK_Undeclared:
+      return "TSK_Undeclared";
+      break;
+    case clang::TSK_ImplicitInstantiation:
+      return "TSK_ImplicitInstantiation";
+      break;
+    case clang::TSK_ExplicitSpecialization:
+      return "TSK_ExplicitSpecialization";
+      break;
+    case clang::TSK_ExplicitInstantiationDefinition:
+      return "TSK_ExplicitInstantiationDefinition";
+      break;
+    case clang::TSK_ExplicitInstantiationDeclaration:
+      return "TSK_ExplicitInstantiationDeclaration";
+      break;
+  }
+  return "TSK Unknown";
+}
+
 static bool isAnonStruct(const QualType &qt) {
   const Type *t = qt.getTypePtrOrNull()->getUnqualifiedDesugaredType();
   if (const auto *tt = dyn_cast<TagType>(t)) {
@@ -78,6 +99,10 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
 
 struct FunctionDeclWriter : public DeclWriter<FunctionDecl> {
   FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    if (_d->isTemplated()) {
+      std::cerr << "Warning: Ignored templated function " << _i.cpp << std::endl;
+      return;  // ignore unspecialized template decl
+    }
     if (_d->isDeleted() || _d->isDeletedAsWritten()) return;
 
     SubOutputs out(_out);
@@ -264,6 +289,10 @@ struct EnumDeclWriter : public DeclWriter<EnumDecl> {
 
 struct VarDeclWriter : DeclWriter<VarDecl> {
   VarDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+    if (d->isTemplated()) {
+      std::cerr << "Warning: Ignored templated var " << _i.cpp << std::endl;
+      return;  // ignore unspecialized template decl
+    }
     SubOutputs out(_out);
     preamble(out.hf());
     preamble(out.sf());
@@ -290,11 +319,17 @@ void DeclHandler::forward(const QualType &qt) {
     forward(pt->getPointeeType());
   } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
     forward(pt->getElementType());
+  } else if (const auto *pt = dyn_cast<InjectedClassNameType>(t)) {
+    forward(pt->getDecl());
   } else if (qt->isBuiltinType()) {
     if (qt->isBooleanType()) {
       _out.addCHeader("stdbool.h");
     } else if (qt->isWideCharType()) {
       _out.addCHeader("wchar.h");
+    } else if (qt->isChar16Type()) {
+      _out.addCHeader("uchar.h");
+    } else if (qt->isChar32Type()) {
+      _out.addCHeader("uchar.h");
     }
   } else if (qt->isFunctionProtoType()) {
     return;
@@ -311,12 +346,6 @@ void DeclHandler::forward(const Decl *d) {
   if (!d) return;
   if (_decls.count(d)) return;
   _decls.emplace(d);
-  // skip if any previous declaration of the same thing was already processed
-  const Decl *pd = d->getPreviousDecl();
-  while (pd != nullptr) {
-    if (_decls.count(pd)) return;
-    pd = pd->getPreviousDecl();
-  }
 
   SourceManager &SM = d->getASTContext().getSourceManager();
   FileID FID = SM.getFileID(SM.getFileLoc(d->getLocation()));
@@ -332,30 +361,39 @@ void DeclHandler::forward(const Decl *d) {
   if (const auto *nd = dyn_cast<NamedDecl>(d))
     if (isLibraryInternal(nd)) return;
 
+  if (d->isTemplated()) {
+    forward(d->getDescribedTemplate());
+  }
+
   try {
-    if (const auto *sd = dyn_cast<TypedefDecl>(d))
-      _unfinished.emplace(new TypedefDeclWriter(sd, *this));
-    else if (const auto *sd = dyn_cast<FunctionTemplateDecl>(d))
+    if (const auto *sd = dyn_cast<TypedefDecl>(d)) {
+      // Can't emit code if the typedef depends on unprovided template parameters
+      if (!sd->getUnderlyingType()->isDependentType())
+        _unfinished.emplace(new TypedefDeclWriter(sd, *this));
+    } else if (const auto *sd = dyn_cast<TypeAliasTemplateDecl>(d))
+      ;  // Ignore and hope desugaring looks through it
+    else if (const auto *sd = dyn_cast<TemplateDecl>(d))
       _templates.push(sd);
-    else if (const auto *sd = dyn_cast<ClassTemplateDecl>(d))
-      _templates.push(sd);
+    else if (const auto *sd = dyn_cast<ClassTemplatePartialSpecializationDecl>(d))
+      ;  // We can't emit code for a template that is only partially specialized
     else if (const auto *sd = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
       _unfinished_templates.emplace(new CXXRecordDeclWriter(sd, *this));
-      _templates.push(sd->getSpecializedTemplate());
     } else if (const auto *sd = dyn_cast<CXXRecordDecl>(d))
       _unfinished.emplace(new CXXRecordDeclWriter(sd, *this));
-    else if (const auto *sd = dyn_cast<FunctionDecl>(d))
-      _unfinished.emplace(new FunctionDeclWriter(sd, *this));
-    else if (const auto *sd = dyn_cast<EnumDecl>(d))
+    else if (const auto *sd = dyn_cast<FunctionDecl>(d)) {
+      if (!sd->isTemplated()) _unfinished.emplace(new FunctionDeclWriter(sd, *this));
+    } else if (const auto *sd = dyn_cast<EnumDecl>(d))
       _unfinished.emplace(new EnumDeclWriter(sd, *this));
-    else if (const auto *sd = dyn_cast<VarDecl>(d))
-      _unfinished.emplace(new VarDeclWriter(sd, *this));
-    else if (const auto *sd = dyn_cast<FieldDecl>(d))
-      ;  // Ignore, fields are handled in the respective record
+    else if (const auto *sd = dyn_cast<VarDecl>(d)) {
+      if (!sd->isTemplated()) _unfinished.emplace(new VarDeclWriter(sd, *this));
+    } else if (const auto *sd = dyn_cast<FieldDecl>(d))
+      ;  // Ignore, fields are handled in the respective record writer
     else if (const auto *sd = dyn_cast<AccessSpecDecl>(d))
       ;  // Ignore, access for members comes from getAccess
     else if (const auto *sd = dyn_cast<StaticAssertDecl>(d))
       ;  // Ignore
+    else if (const auto *sd = dyn_cast<TypeAliasDecl>(d))
+      forward(sd->getUnderlyingType());
     else if (const auto *sd = dyn_cast<UsingShadowDecl>(d))
       forward(sd->getTargetDecl());
     else if (const auto *sd = dyn_cast<UsingDecl>(d)) {
@@ -376,7 +414,8 @@ void DeclHandler::forward(const Decl *d) {
           forward(QualType(nn->getAsType(), 0));
           break;
         case NestedNameSpecifier::Global:
-          unhandled = "Global";
+          // a global decl that was hopefully already handled was imported into the parent
+          // namespace, but we don't care because it would be redundant.
           break;
         case NestedNameSpecifier::Super:
           unhandled = "Super";
@@ -458,29 +497,34 @@ void DeclHandler::add(const Decl *d) {
 void DeclHandler::finishTemplates(clang::Sema &S) {
   while (_templates.size() || _unfinished_templates.size()) {
     if (_templates.size()) {
-      if (const auto *ctd = dyn_cast<ClassTemplateDecl>(_templates.front())) {
-        for (const auto *ctsd : ctd->specializations()) {
-          add(ctsd);
-        }
-      } else if (const auto *ftd = dyn_cast<FunctionTemplateDecl>(_templates.front())) {
-        for (const auto *ftsd : ftd->specializations()) {
-          add(ftsd);
-        }
+      const TemplateDecl *TD = _templates.front();
+      if (const auto *ctd = dyn_cast<ClassTemplateDecl>(TD)) {
+        for (const auto *ctsd : ctd->specializations()) add(ctsd);
+      } else if (const auto *ftd = dyn_cast<FunctionTemplateDecl>(TD)) {
+        for (const auto *ftsd : ftd->specializations()) add(ftsd);
+      } else if (const auto *vtd = dyn_cast<VarTemplateDecl>(TD)) {
+        for (const auto *vtsd : vtd->specializations()) add(vtsd);
+      } else {
+        std::cerr << "Warning: template " << cfg().getCXXQualifiedName(TD) << " has unknown kind "
+                  << TD->getDeclKindName() << std::endl;
       }
       _templates.pop();
     }
     if (_unfinished_templates.size()) {
-      const CXXRecordDeclWriter *writer =
-          dynamic_cast<const CXXRecordDeclWriter *>(_unfinished_templates.front().get());
-      ClassTemplateSpecializationDecl *crd = const_cast<ClassTemplateSpecializationDecl *>(
+      CXXRecordDeclWriter *writer =
+          dynamic_cast<CXXRecordDeclWriter *>(_unfinished_templates.front().get());
+      ClassTemplateSpecializationDecl *CTSD = const_cast<ClassTemplateSpecializationDecl *>(
           dyn_cast<ClassTemplateSpecializationDecl>(writer->decl()));
       // clang is "lazy" and doesn't add any members that weren't used. We can force them to be
       // added.
-      if (!crd->hasDefinition()) {
-        SourceLocation L = crd->getLocation();
-        S.InstantiateClassTemplateSpecialization(L, crd, TSK_ExplicitInstantiationDeclaration);
-        S.InstantiateClassTemplateSpecializationMembers(L, crd,
-                                                        TSK_ExplicitInstantiationDeclaration);
+      if (!CTSD->hasDefinition() &&
+          CTSD->getTemplateSpecializationKind() != TSK_ExplicitSpecialization) {
+        std::cerr << "Instantiating " << cfg().getCXXQualifiedName(CTSD) << std::endl;
+        SourceLocation L = CTSD->getLocation();
+        TemplateSpecializationKind TSK = TSK_ExplicitInstantiationDeclaration;
+        S.InstantiateClassTemplateSpecialization(L, CTSD, TSK);
+        S.InstantiateClassTemplateSpecializationMembers(L, CTSD, TSK);
+        if (!_renamedInternals.count(CTSD)) writer->makeInstantiation();
       }
       _unfinished_templates.pop();
       while (_unfinished.size()) {
