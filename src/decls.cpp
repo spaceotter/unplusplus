@@ -15,6 +15,7 @@
 #include <sstream>
 
 #include "cxxrecord.hpp"
+#include "filter.hpp"
 #include "function.hpp"
 #include "identifier.hpp"
 
@@ -64,8 +65,6 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
     std::string keyword;
     if (const auto *tt = dyn_cast<TagType>(t->getUnqualifiedDesugaredType())) {
       const TagDecl *td = tt->getDecl();
-      out.hf() << "// underlying: " << cfg().getCXXQualifiedName(td) << "\n";
-      out.hf() << "// internal: " << isLibraryInternal(td) << "\n";
       // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
       // refer to it. Substitute the name of this typedef instead, and forward declare the missing
       // type.
@@ -232,10 +231,7 @@ void DeclHandler::forward(const Decl *d) {
     return;
   }
 
-  if (const auto *nd = dyn_cast<NamedDecl>(d))
-    if (isLibraryInternal(nd)) return;
-
-  if (!isAccessible(d)) return;
+  if (filterOut(d)) return;
 
   if (d->isTemplated()) {
     forward(d->getDescribedTemplate());
@@ -413,61 +409,12 @@ void DeclHandler::finishTemplates(clang::Sema &S) {
 }
 
 bool DeclHandler::renameInternal(const clang::NamedDecl *d, const Identifier &i) {
-  if (!_renamedInternals.count(d) && isLibraryInternal(d)) {
-    // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
-    // refer to it. Substitute the name of this typedef instead, and forward declare the missing
-    // type.
+  if (!_renamedInternals.count(d) && filterOut(d)) {
+    // this typedef renames a filtered-out class. Its decl was dropped earlier, so we can't refer to
+    // it. Substitute the name of this typedef instead, and forward declare the missing type.
     Identifier::ids[d] = i;
     _renamedInternals.emplace(d);
     return true;
   }
   return false;
-}
-
-bool unplusplus::isAccessible(QualType QT) {
-  if (QT->isPointerType()) {
-    return isAccessible(QT->getPointeeType());
-  } else if (QT->isReferenceType()) {
-    return isAccessible(QT->getPointeeType());
-  } else if (QT->isRecordType()) {
-    return isAccessible(QT->getAsRecordDecl());
-  } else {
-    return true;
-  }
-}
-
-static bool isAccessible(const ArrayRef<clang::TemplateArgument> &d) {
-  for (const auto &Arg : d) {
-    switch (Arg.getKind()) {
-      case TemplateArgument::Type:
-        if (!isAccessible(Arg.getAsType())) return false;
-        break;
-      default:
-        break;
-    }
-  }
-  return true;
-}
-
-bool unplusplus::isAccessible(const Decl *d) {
-  if (d->getAccess() == AccessSpecifier::AS_protected ||
-      d->getAccess() == AccessSpecifier::AS_private) {
-    return false;
-  }
-
-  const TemplateArgumentList *l = nullptr;
-  if (const auto *t = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
-    if (!isAccessible(t->getSpecializedTemplate())) return false;
-    l = &t->getTemplateArgs();
-  } else if (const auto *t = dyn_cast<FunctionDecl>(d))
-    l = t->getTemplateSpecializationArgs();
-  if (l != nullptr) {
-    if (!::isAccessible(l->asArray())) return false;
-  }
-
-  if (const auto *dc = dyn_cast_or_null<Decl>(d->getDeclContext())) {
-    return isAccessible(dc);
-  } else {
-    return true;
-  }
 }

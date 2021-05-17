@@ -75,9 +75,6 @@ struct Identifier {
   std::string cpp;  // the fully qualified C++ name
 };
 
-// A filter function to avoid some private library declarations
-bool isLibraryInternal(const clang::NamedDecl *d);
-
 // Get the decl name, or overridden print operator
 std::string getName(const clang::NamedDecl *d);
 

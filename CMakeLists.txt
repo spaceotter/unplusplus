@@ -29,6 +29,7 @@ set(SOURCE_FILES
     src/identifier.cpp
     src/outputs.cpp
     src/action.cpp
+    src/filter.cpp
     src/decls.cpp
     src/cxxrecord.cpp
     src/function.cpp)

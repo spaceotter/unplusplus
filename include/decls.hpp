@@ -83,9 +83,4 @@ class DeclWriter : public DeclWriterBase {
     out << "// C++ name: " << _i.cpp << "\n";
   }
 };
-
-// Does the QualType use declarations that are private
-bool isAccessible(clang::QualType QT);
-// Is any component of the Declaration's name private
-bool isAccessible(const clang::Decl *d);
 }  // namespace unplusplus

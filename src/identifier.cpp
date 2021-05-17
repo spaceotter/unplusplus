@@ -14,6 +14,8 @@
 #include <sstream>
 #include <unordered_map>
 
+#include "filter.hpp"
+
 using namespace unplusplus;
 using namespace clang;
 
@@ -144,8 +146,8 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
     return root ? Identifier::ids.at(d).c : Identifier::ids.at(d).c.substr(_root.size());
   }
 
-  if (isLibraryInternal(d)) {
-    throw mangling_error("Library internal " + getCXXQualifiedName(d));
+  if (filterOut(d)) {
+    throw mangling_error("Filtered Out " + getCXXQualifiedName(d));
   }
 
   std::stringstream os;
@@ -352,58 +354,6 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
     desugar.print(ss, cfg.PP, name.cpp);
   ss.flush();
   cpp = ss.str();
-}
-
-static bool isLibraryInternal(QualType QT) {
-  while (QT->isReferenceType() || QT->isPointerType()) QT = QT->getPointeeType();
-  if (const auto *tt = dyn_cast<TagType>(QT->getUnqualifiedDesugaredType())) {
-    if (isLibraryInternal(tt->getDecl())) return true;
-  }
-  return false;
-}
-
-bool unplusplus::isLibraryInternal(const clang::NamedDecl *ND) {
-  if (!ND) return false;
-
-  // If a library internal was given an external name by a typedef, don't consider it internal
-  // anymore.
-  if (Identifier::ids.count(ND)) return false;
-
-  std::string name = getName(ND);
-
-  if (name == "__gnu_cxx" || name == "__cxxabiv1") return true;
-
-  const DeclContext *Ctx = ND->getDeclContext();
-
-  if (const auto *NCtx = dyn_cast_or_null<NamedDecl>(Ctx))
-    if (name[0] == '_' && getName(NCtx) == "std") return true;
-
-  if (const auto *td = dyn_cast<ClassTemplateSpecializationDecl>(ND)) {
-    for (const auto &Arg : td->getTemplateArgs().asArray()) {
-      switch (Arg.getKind()) {
-        case TemplateArgument::Type: {
-          QualType qt = Arg.getAsType();
-          if (::isLibraryInternal(Arg.getAsType())) return true;
-        } break;
-        case TemplateArgument::Declaration:
-          if (isLibraryInternal(Arg.getAsDecl())) return true;
-          break;
-        default:
-          break;
-      }
-    }
-  }
-
-  if (const auto *FD = dyn_cast<FunctionDecl>(ND)) {
-    if (::isLibraryInternal(FD->getReturnType())) return true;
-    for (const auto *PD : FD->parameters()) {
-      if (::isLibraryInternal(PD->getType())) return true;
-    }
-  }
-
-  if (const auto *NCtx = dyn_cast_or_null<NamedDecl>(Ctx)) return isLibraryInternal(NCtx);
-
-  return false;
 }
 
 std::string unplusplus::getName(const NamedDecl *d) {

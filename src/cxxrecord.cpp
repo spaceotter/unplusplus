@@ -9,6 +9,8 @@
 #include <clang/AST/DeclTemplate.h>
 #include <clang/AST/RecordLayout.h>
 
+#include "filter.hpp"
+
 using namespace unplusplus;
 using namespace clang;
 
@@ -38,30 +40,6 @@ CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclW
   out.hf() << "#endif // __cplusplus\n\n";
   if (_d->hasDefinition() && _d->isCompleteDefinition()) {
     writeMembers(out);
-  }
-}
-
-static void sanitizeType(QualType &QT, const ASTContext &AC) {
-  if (QT->isRecordType()) {
-    if (!QT->getAsRecordDecl()->isCompleteDefinition() ||
-        isLibraryInternal(QT->getAsRecordDecl()) || !isAccessible(QT->getAsRecordDecl())) {
-      uint64_t size = AC.getTypeSizeInChars(QT).getQuantity();
-      QT = AC.getConstantArrayType(AC.CharTy, llvm::APInt(AC.getTypeSize(AC.getSizeType()), size),
-                                   nullptr, ArrayType::Normal, 0);
-    }
-  } else if (QT->isReferenceType()) {
-    QT = AC.getPointerType(QT.getNonReferenceType());
-    sanitizeType(QT, AC);
-  } else if (QT->isPointerType()) {
-    QualType pointee = QT->getPointeeType();
-    if (pointee->isRecordType()) {
-      if (!isAccessible(pointee->getAsRecordDecl()) ||
-          isLibraryInternal(pointee->getAsRecordDecl()))
-        QT = AC.VoidPtrTy;
-    } else {
-      sanitizeType(pointee, AC);
-      QT = AC.getPointerType(pointee);
-    }
   }
 }
 
