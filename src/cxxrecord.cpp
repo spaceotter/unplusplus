@@ -51,8 +51,8 @@ void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d, std:
     QualType qt = f->getType();
     std::string name = getName(f);
 
-    // handles an anonymous struct or union defined as a field.
     if (qt->isRecordType()) {
+      // handles an anonymous struct or union defined as a field.
       const CXXRecordDecl *rd = dyn_cast<CXXRecordDecl>(qt->getAsRecordDecl());
       if (!rd) throw std::runtime_error("Record Type is not CXX");
       const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(rd->getParent());
@@ -67,6 +67,16 @@ void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d, std:
         if (name.size()) out.hf() << " " << name;
         out.hf() << ";\n";
         continue;
+      }
+    } else if (qt->isEnumeralType()) {
+      // handles an anonymous enum defined as a field.
+      const EnumDecl *ed =
+          dyn_cast<EnumDecl>(qt->getUnqualifiedDesugaredType()->getAs<EnumType>()->getDecl());
+      const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(ed->getParent());
+      if (ed->isEmbeddedInDeclarator() && ed->isThisDeclarationADefinition() &&
+          !Identifier::ids.count(ed) && dc == d) {
+        // give the anonymous enum the name of the field.
+        Identifier::ids[ed] = Identifier(f, cfg());
       }
     }
 
