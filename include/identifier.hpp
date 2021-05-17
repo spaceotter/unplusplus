@@ -45,7 +45,7 @@ struct IdentifierConfig {
   std::string getCName(const clang::QualType &qt, std::string name, bool root = true) const;
 
   // Get the decl name, with qualifier and template arguments
-  std::string getCXXQualifiedName(const clang::NamedDecl *d) const;
+  std::string getCXXQualifiedName(const clang::Decl *d) const;
 
   // Prints an alternate mangling for template arguments
   void printCTemplateArgs(std::ostream &os,

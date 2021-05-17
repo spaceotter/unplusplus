@@ -190,6 +190,11 @@ CXXRecordDeclWriter::~CXXRecordDeclWriter() {
 
     writeMembers(out);
 
+    if (_d->getAccess() == AccessSpecifier::AS_protected ||
+        _d->getAccess() == AccessSpecifier::AS_private) {
+      return;
+    }
+
     bool any_ctor = false;
     bool any_dtor = false;
     for (const auto d : _d->decls()) {
@@ -240,8 +245,7 @@ CXXRecordDeclWriter::~CXXRecordDeclWriter() {
       out.sf() << "  delete[] " << cfg()._this << ";\n}\n\n";
     }
   } else {
-    std::string warn = "Warning: Class " + _i.cpp + " lacks a definition\n";
-    std::cerr << warn;
+    std::string warn = "Class " + _i.cpp + " lacks a definition\n";
     _out.hf() << "// " << warn << "\n";
   }
 }

@@ -419,11 +419,15 @@ std::string unplusplus::getName(const NamedDecl *d) {
   }
 }
 
-std::string IdentifierConfig::getCXXQualifiedName(const clang::NamedDecl *d) const {
-  std::string s;
-  llvm::raw_string_ostream ArgOS(s);
-  d->getNameForDiagnostic(ArgOS, PP, true);
-  return ArgOS.str();
+std::string IdentifierConfig::getCXXQualifiedName(const clang::Decl *d) const {
+  if (const auto *nd = dyn_cast_or_null<NamedDecl>(d)) {
+    std::string s;
+    llvm::raw_string_ostream ArgOS(s);
+    nd->getNameForDiagnostic(ArgOS, PP, true);
+    return ArgOS.str();
+  } else {
+    return "<none>";
+  }
 }
 
 const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
