@@ -44,8 +44,7 @@ CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclW
 static void sanitizeType(QualType &QT, const ASTContext &AC) {
   if (QT->isRecordType()) {
     if (!QT->getAsRecordDecl()->isCompleteDefinition() ||
-        isLibraryInternal(QT->getAsRecordDecl()) ||
-        !isAccessible(QT->getAsRecordDecl())) {
+        isLibraryInternal(QT->getAsRecordDecl()) || !isAccessible(QT->getAsRecordDecl())) {
       uint64_t size = AC.getTypeSizeInChars(QT).getQuantity();
       QT = AC.getConstantArrayType(AC.CharTy, llvm::APInt(AC.getTypeSize(AC.getSizeType()), size),
                                    nullptr, ArrayType::Normal, 0);
@@ -56,7 +55,8 @@ static void sanitizeType(QualType &QT, const ASTContext &AC) {
   } else if (QT->isPointerType()) {
     QualType pointee = QT->getPointeeType();
     if (pointee->isRecordType()) {
-      if (!isAccessible(pointee->getAsRecordDecl()) || isLibraryInternal(pointee->getAsRecordDecl()))
+      if (!isAccessible(pointee->getAsRecordDecl()) ||
+          isLibraryInternal(pointee->getAsRecordDecl()))
         QT = AC.VoidPtrTy;
     } else {
       sanitizeType(pointee, AC);

@@ -440,7 +440,7 @@ static bool isAccessible(const ArrayRef<clang::TemplateArgument> &d) {
   for (const auto &Arg : d) {
     switch (Arg.getKind()) {
       case TemplateArgument::Type:
-        if(!isAccessible(Arg.getAsType())) return false;
+        if (!isAccessible(Arg.getAsType())) return false;
         break;
       default:
         break;
