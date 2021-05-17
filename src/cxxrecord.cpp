@@ -207,6 +207,12 @@ CXXRecordDeclWriter::~CXXRecordDeclWriter() {
           // Drop it if this decl will be ambiguous with a constructor
           if (getName(nd) == getName(_d) && !isa<CXXConstructorDecl>(nd)) continue;
         }
+        if (const auto *cd = dyn_cast<CXXRecordDecl>(d)) {
+          // this one should have been handled already during field enumeration.
+          if (cd->isAnonymousStructOrUnion() && cd->isEmbeddedInDeclarator() &&
+              cd->isThisDeclarationADefinition())
+            continue;
+        }
         _dh.forward(d);
       }
       if (isa<CXXConstructorDecl>(d)) any_ctor = true;
