@@ -36,18 +36,41 @@ CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclW
   out.hf() << "#else\n";
   out.hf() << "typedef " << _keyword << " " << _i.c << cfg()._struct << " " << _i.c << ";\n";
   out.hf() << "#endif // __cplusplus\n\n";
+  if (_d->hasDefinition() && _d->isCompleteDefinition()) {
+    writeMembers(out);
+  }
 }
 
-void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d) {
+void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d, std::string indent) {
   const ASTContext &AC = _d->getASTContext();
   const ASTRecordLayout &layout = AC.getASTRecordLayout(d);
 
   for (const auto *f : d->fields()) {
     QualType qt = f->getType();
+    std::string name = getName(f);
+
+    // handles an anonymous struct or union defined as a field.
+    if (qt->isRecordType()) {
+      const CXXRecordDecl *rd = dyn_cast<CXXRecordDecl>(qt->getAsRecordDecl());
+      if (!rd) throw std::runtime_error("Record Type is not CXX");
+      const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(rd->getParent());
+      if (rd->isEmbeddedInDeclarator() && rd->isThisDeclarationADefinition() &&
+          !Identifier::ids.count(rd) && dc == d) {
+        if (rd->isUnion())
+          out.hf() << indent << "union {\n";
+        else
+          out.hf() << indent << "struct {\n";
+        writeFields(out, rd, indent + "  ");
+        out.hf() << indent << "}";
+        if (name.size()) out.hf() << " " << name;
+        out.hf() << ";\n";
+        continue;
+      }
+    }
+
     _dh.forward(qt);
 
-    std::string name = getName(f);
-    if (_fields.count(name)) {
+    if (name.size() && _fields.count(name)) {
       int i = 2;
       while (_fields.count(name + cfg().c_separator + std::to_string(i))) i++;
       name += cfg().c_separator + std::to_string(i);
@@ -59,14 +82,22 @@ void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d) {
       qt = AC.getConstantArrayType(AC.CharTy, llvm::APInt(AC.getTypeSize(AC.getSizeType()), size),
                                    nullptr, ArrayType::Normal, 0);
     }
-    Identifier fi(qt, Identifier(name, cfg()), cfg());
-    out.hf() << "  " << fi.c;
-    if (f->isBitField()) {
-      out.hf() << " : " << f->getBitWidthValue(AC);
-    }
     std::string location = f->getLocation().printToString(AC.getSourceManager());
-    out.hf() << "; // " << f->getQualifiedNameAsString() << " at: " << location << "\n";
-    _fields.emplace(name);
+    try {
+      Identifier fi(qt, Identifier(name, cfg()), cfg());
+      out.hf() << indent << fi.c;
+      if (f->isBitField()) {
+        out.hf() << " : " << f->getBitWidthValue(AC);
+      }
+      out.hf() << "; // " << f->getQualifiedNameAsString() << " at: " << location << "\n";
+    } catch (const mangling_error err) {
+      std::stringstream ss;
+      ss << indent << "// Error: " << cfg().getCXXQualifiedName(f) << " is " << err.what() << " at "
+         << location;
+      std::cerr << ss.str() << std::endl;
+      out.hf() << ss.str() << "\n";
+    }
+    if (name.size()) _fields.emplace(name);
   }
 }
 
@@ -121,6 +152,7 @@ void CXXRecordDeclWriter::writeVirtualBases(Outputs &out, const CXXRecordDecl *d
 }
 
 void CXXRecordDeclWriter::writeMembers(Outputs &out) {
+  if (_wroteMembers) return;
   out.hf() << "// Members of type " << _i.cpp << "\n";
   out.hf() << _keyword << " " << _i.c << cfg()._struct << " {\n";
   // The procedure here has to mimic clang's RecordLayoutBuilder.cpp to order the fields of the base
@@ -141,6 +173,7 @@ void CXXRecordDeclWriter::writeMembers(Outputs &out) {
            << ") == " << _d->getASTContext().getTypeSizeInChars(_d->getTypeForDecl()).getQuantity()
            << ", \"Size of C struct must match C++\");\n";
   out.hf() << "#endif\n\n";
+  _wroteMembers = true;
 }
 
 // writer destructors should run after forward declarations are written

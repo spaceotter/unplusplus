@@ -262,6 +262,8 @@ void DeclHandler::forward(const Decl *d) {
       if (!sd->isTemplated()) _unfinished.emplace(new VarDeclWriter(sd, *this));
     } else if (const auto *sd = dyn_cast<FieldDecl>(d))
       ;  // Ignore, fields are handled in the respective record writer
+    else if (const auto *sd = dyn_cast<IndirectFieldDecl>(d))
+      ;  // Ignore, fields are handled in the respective record writer
     else if (const auto *sd = dyn_cast<AccessSpecDecl>(d))
       ;  // Ignore, access for members comes from getAccess
     else if (const auto *sd = dyn_cast<StaticAssertDecl>(d))

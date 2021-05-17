@@ -18,9 +18,10 @@ struct CXXRecordDeclWriter : public DeclWriter<clang::CXXRecordDecl> {
   std::unordered_set<const clang::CXXRecordDecl *> _vbases;
   clang::CXXIndirectPrimaryBaseSet _indirect;
   std::string _keyword;
+  bool _wroteMembers = false;
 
   void writeMembers(Outputs &out);
-  void writeFields(Outputs &out, const clang::CXXRecordDecl *d);
+  void writeFields(Outputs &out, const clang::CXXRecordDecl *d, std::string indent = "  ");
   void writeVirtualBases(Outputs &out, const clang::CXXRecordDecl *d);
   void writeNonVirtualBases(Outputs &out, const clang::CXXRecordDecl *d);
 
