@@ -235,6 +235,8 @@ void DeclHandler::forward(const Decl *d) {
   if (const auto *nd = dyn_cast<NamedDecl>(d))
     if (isLibraryInternal(nd)) return;
 
+  if (!isAccessible(d)) return;
+
   if (d->isTemplated()) {
     forward(d->getDescribedTemplate());
   }
@@ -420,4 +422,52 @@ bool DeclHandler::renameInternal(const clang::NamedDecl *d, const Identifier &i)
     return true;
   }
   return false;
+}
+
+bool unplusplus::isAccessible(QualType QT) {
+  if (QT->isPointerType()) {
+    return isAccessible(QT->getPointeeType());
+  } else if (QT->isReferenceType()) {
+    return isAccessible(QT->getPointeeType());
+  } else if (QT->isRecordType()) {
+    return isAccessible(QT->getAsRecordDecl());
+  } else {
+    return true;
+  }
+}
+
+static bool isAccessible(const ArrayRef<clang::TemplateArgument> &d) {
+  for (const auto &Arg : d) {
+    switch (Arg.getKind()) {
+      case TemplateArgument::Type:
+        if(!isAccessible(Arg.getAsType())) return false;
+        break;
+      default:
+        break;
+    }
+  }
+  return true;
+}
+
+bool unplusplus::isAccessible(const Decl *d) {
+  if (d->getAccess() == AccessSpecifier::AS_protected ||
+      d->getAccess() == AccessSpecifier::AS_private) {
+    return false;
+  }
+
+  const TemplateArgumentList *l = nullptr;
+  if (const auto *t = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
+    if (!isAccessible(t->getSpecializedTemplate())) return false;
+    l = &t->getTemplateArgs();
+  } else if (const auto *t = dyn_cast<FunctionDecl>(d))
+    l = t->getTemplateSpecializationArgs();
+  if (l != nullptr) {
+    if (!::isAccessible(l->asArray())) return false;
+  }
+
+  if (const auto *dc = dyn_cast_or_null<Decl>(d->getDeclContext())) {
+    return isAccessible(dc);
+  } else {
+    return true;
+  }
 }

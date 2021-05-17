@@ -41,6 +41,30 @@ CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, DeclHandler &dh) : DeclW
   }
 }
 
+static void sanitizeType(QualType &QT, const ASTContext &AC) {
+  if (QT->isRecordType()) {
+    if (!QT->getAsRecordDecl()->isCompleteDefinition() ||
+        isLibraryInternal(QT->getAsRecordDecl()) ||
+        !isAccessible(QT->getAsRecordDecl())) {
+      uint64_t size = AC.getTypeSizeInChars(QT).getQuantity();
+      QT = AC.getConstantArrayType(AC.CharTy, llvm::APInt(AC.getTypeSize(AC.getSizeType()), size),
+                                   nullptr, ArrayType::Normal, 0);
+    }
+  } else if (QT->isReferenceType()) {
+    QT = AC.getPointerType(QT.getNonReferenceType());
+    sanitizeType(QT, AC);
+  } else if (QT->isPointerType()) {
+    QualType pointee = QT->getPointeeType();
+    if (pointee->isRecordType()) {
+      if (!isAccessible(pointee->getAsRecordDecl()) || isLibraryInternal(pointee->getAsRecordDecl()))
+        QT = AC.VoidPtrTy;
+    } else {
+      sanitizeType(pointee, AC);
+      QT = AC.getPointerType(pointee);
+    }
+  }
+}
+
 void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d, std::string indent) {
   const ASTContext &AC = _d->getASTContext();
   const ASTRecordLayout &layout = AC.getASTRecordLayout(d);
@@ -76,12 +100,8 @@ void CXXRecordDeclWriter::writeFields(Outputs &out, const CXXRecordDecl *d, std:
       name += cfg().c_separator + std::to_string(i);
     }
 
-    if (qt->isRecordType() && (!qt->getAsRecordDecl()->isCompleteDefinition() ||
-                               isLibraryInternal(qt->getAsRecordDecl()))) {
-      uint64_t size = AC.getTypeSizeInChars(qt).getQuantity();
-      qt = AC.getConstantArrayType(AC.CharTy, llvm::APInt(AC.getTypeSize(AC.getSizeType()), size),
-                                   nullptr, ArrayType::Normal, 0);
-    }
+    sanitizeType(qt, AC);
+
     std::string location = f->getLocation().printToString(AC.getSourceManager());
     try {
       Identifier fi(qt, Identifier(name, cfg()), cfg());
@@ -189,11 +209,6 @@ CXXRecordDeclWriter::~CXXRecordDeclWriter() {
     }
 
     writeMembers(out);
-
-    if (_d->getAccess() == AccessSpecifier::AS_protected ||
-        _d->getAccess() == AccessSpecifier::AS_private) {
-      return;
-    }
 
     bool any_ctor = false;
     bool any_dtor = false;
