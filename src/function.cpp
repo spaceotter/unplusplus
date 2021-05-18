@@ -13,11 +13,12 @@ FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWri
     std::cerr << "Warning: Ignored templated function " << _i.cpp << std::endl;
     return;  // ignore unspecialized template decl
   }
+  bool extc = _d->isExternC();
   if (_d->isDeleted() || _d->isDeletedAsWritten()) return;
 
   SubOutputs out(_out);
   preamble(out.hf());
-  preamble(out.sf());
+  if (!extc) preamble(out.sf());
   // dump the original c++ parameters
   std::string s;
   llvm::raw_string_ostream cxx_params(s);
@@ -31,6 +32,10 @@ FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWri
   cxx_params << ")\n";
   out.hf() << cxx_params.str();
   out.sf() << cxx_params.str();
+
+  // Types redefined by unplusplus may conflict with the C++ ones
+  if (extc)
+    out.hf() << "#ifndef __cplusplus\n";
 
   try {
     QualType qr = d->getReturnType();
@@ -97,10 +102,12 @@ FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWri
     }
     proto << ")";
     Identifier signature(qr, Identifier(proto.str()), cfg());
-    out.hf() << signature.c << ";\n\n";
-    if (d->getDeclContext()->isExternCContext()) {
-      out.sf() << "// defined externally\n";
+    out.hf() << signature.c << ";\n";
+    if (extc) {
+      out.hf() << "#endif // !__cplusplus\n\n";
+      out.sf() << "// defined externally\n\n";
     } else {
+      out.hf() << "\n";
       std::string fname = getName(d);
       out.sf() << signature.c << " {\n  ";
       if (dtor) {
