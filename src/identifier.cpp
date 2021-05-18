@@ -220,10 +220,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
     std::string name = getName(d);
     if (name.find("operator") == 0) name = sanitize(name);
     if (name.empty()) {
-      if (isa<EnumDecl>(d))
-        os << "<anonymous>";  // The Enum Decl handler needs to handle anonymous enums
-      else
-        throw mangling_error("Anonymous Decl");
+      throw mangling_error("Anonymous Decl");
     } else {
       os << name;
     }

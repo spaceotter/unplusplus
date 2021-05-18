@@ -15,6 +15,7 @@
 #include <sstream>
 
 #include "cxxrecord.hpp"
+#include "enum.hpp"
 #include "filter.hpp"
 #include "function.hpp"
 #include "identifier.hpp"
@@ -94,69 +95,6 @@ struct TypedefDeclWriter : public DeclWriter<TypedefDecl> {
       out.hf() << "typedef " << ti.c << ";\n";
     }
     out.hf() << "#endif // __cplusplus\n\n";
-  }
-};
-
-struct EnumDeclWriter : public DeclWriter<EnumDecl> {
-  EnumDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
-    SubOutputs out(_out);
-    preamble(out.hf());
-
-    // try to figure out if C will have the correct type for the enum.
-
-    // if there's a negative value, signed int will be assumed
-    bool negative = false;
-    for (const auto *e : _d->enumerators())
-      if (e->getInitVal().isNegative()) negative = true;
-
-    const ASTContext &AC = _d->getASTContext();
-    const Type *int_type = _d->getIntegerType()->getUnqualifiedDesugaredType();
-    const Type *expected = (negative ? AC.IntTy : AC.UnsignedIntTy).getTypePtr();
-    // generate some macros instead of a typedef enum
-    bool macros = int_type != expected;
-
-    const TypedefDecl *tdd = getAnonTypedef(_d);
-    // is it truly anonymous, with no typedef even?
-    bool anon = getName(d).empty() && tdd == nullptr;
-
-    if (!anon) {
-      out.hf() << "#ifdef __cplusplus\n";
-      out.hf() << "typedef ";
-      if (tdd == nullptr) out.hf() << "enum ";
-      out.hf() << _i.cpp << " " << _i.c << ";\n";
-      out.hf() << "#else\n";
-      if (!macros) out.hf() << "typedef ";
-    }
-
-    if (macros) {
-      for (const auto *e : _d->enumerators()) {
-        Identifier entry(e, cfg());
-        Identifier entryt(d->getIntegerType(), Identifier(), cfg());
-        out.hf() << "#define " << entry.c << " ((" << entryt.c << ")";
-        out.hf() << e->getInitVal().toString(10) << ")\n";
-      }
-      if (!anon) {
-        Identifier ii(d->getIntegerType(), Identifier(_i.c, cfg()), cfg());
-        out.hf() << "typedef " << ii.c << ";\n";
-      }
-    } else {
-      out.hf() << "enum ";
-      if (!anon) out.hf() << _i.c << cfg()._enum << " ";
-      out.hf() << "{\n";
-      for (const auto *e : _d->enumerators()) {
-        Identifier entry(e, cfg());
-        out.hf() << "  " << entry.c << " = ";
-        out.hf() << e->getInitVal().toString(10) << ",\n";
-      }
-      out.hf() << "}";
-      if (!anon) out.hf() << " " << _i.c;
-      out.hf() << ";\n";
-    }
-
-    if (!anon)
-      out.hf() << "#endif // __cplusplus\n\n";
-    else
-      out.hf() << "\n";
   }
 };
 

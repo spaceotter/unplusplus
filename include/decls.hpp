@@ -74,7 +74,9 @@ class DeclWriter : public DeclWriterBase {
   Identifier _i;
 
  public:
-  DeclWriter(const T *d, DeclHandler &dh) : DeclWriterBase(dh), _d(d), _i(d, _dh.cfg()) {}
+  DeclWriter(const T *d, DeclHandler &dh, bool id = true) : DeclWriterBase(dh), _d(d) {
+    if (id) _i = Identifier(d, _dh.cfg());
+  }
   const T *decl() const { return _d; }
 
   void preamble(std::ostream &out) {

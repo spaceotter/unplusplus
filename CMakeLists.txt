@@ -32,7 +32,8 @@ set(SOURCE_FILES
     src/filter.cpp
     src/decls.cpp
     src/cxxrecord.cpp
-    src/function.cpp)
+    src/function.cpp
+    src/enum.cpp)
 
 add_executable(unplusplus ${SOURCE_FILES})
 target_compile_definitions(unplusplus PUBLIC "CLANG_RESOURCE_DIRECTORY=R\"\(${CLANG_RESOURCE_DIR}\)\"")
