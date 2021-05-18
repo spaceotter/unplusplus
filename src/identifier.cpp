@@ -261,7 +261,7 @@ std::string IdentifierConfig::getCName(const Type *t, const std::string &name, b
     c = getCName(pt->getPointeeType(), name);
   } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
     std::string s = "[" + pt->getSize().toString(10, false) + "]";
-    c = getCName(pt->getElementType(), name + s);
+    c = getCName(pt->getElementType(), "(" + name + ")" + s);
   } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
     std::stringstream ss;
     bool first = true;
