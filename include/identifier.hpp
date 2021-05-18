@@ -20,7 +20,9 @@ struct mangling_error : public std::runtime_error {
 
 // This class stores the settings for C name generation from C++ things.
 struct IdentifierConfig {
-  IdentifierConfig(const clang::ASTContext &astc) : astc(astc), PP(astc.getLangOpts()) {}
+  IdentifierConfig(const clang::ASTContext &astc) : astc(astc), PP(astc.getLangOpts()) {
+    PP.PrintCanonicalTypes = 1;
+  }
   // these determine how flattened C names are assembled
   std::string _root = "upp_";
   std::string c_separator = "_";
@@ -33,7 +35,7 @@ struct IdentifierConfig {
   // this is needed for "desugaring" and constructing derived types
   const clang::ASTContext &astc;
   // this is needed for clang to print things correctly, like bool
-  const clang::PrintingPolicy PP;
+  clang::PrintingPolicy PP;
 
   // remove illegal characters
   std::string sanitize(const std::string &name) const;
