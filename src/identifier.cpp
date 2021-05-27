@@ -304,40 +304,45 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
     throw mangling_error("Null Decl");
   }
 
-  if (ids.count(d)) {
-    c = ids.at(d).c;
-    cpp = ids.at(d).cpp;
-  } else {
-    // if this is an anonymous decl that is being given a name by a typedef, steal the typedef's
-    // name
-    // as this decl's name, but cache the result for this decl.
-    const NamedDecl *orig = getAnonTypedef(d);
-    if (orig)
-      std::swap(d, orig);
-    else
-      orig = d;
-
-    if (d->getDeclContext()->isExternCContext()) {
-      c = d->getDeclName().getAsString();
-      if (dups.count(c)) {
-        throw mangling_error("An automatically generated symbol conflicts with a C symbol `" + c +
-                             "`");
-      }
-    } else {
-      c = cfg.getCName(d);
-      if (dups.count(c)) {
-        unsigned cnt = 2;
-        std::string nc;
-        while (dups.count(nc = c + "_" + std::to_string(cnt))) cnt++;
-        c = nc;
-      }
-      dups.emplace(c);
+  const NamedDecl *p = d;
+  while (p) {
+    if (ids.count(p)) {
+      c = ids.at(p).c;
+      cpp = ids.at(p).cpp;
+      return;
     }
-
-    cpp = cfg.getCXXQualifiedName(d);
-
-    ids.emplace(std::make_pair(orig, *this));
+    p = dyn_cast_or_null<NamedDecl>(p->getPreviousDecl());
   }
+
+  // if this is an anonymous decl that is being given a name by a typedef, steal the typedef's
+  // name
+  // as this decl's name, but cache the result for this decl.
+  const NamedDecl *orig = getAnonTypedef(d);
+  if (orig)
+    std::swap(d, orig);
+  else
+    orig = d;
+
+  if (d->getDeclContext()->isExternCContext()) {
+    c = d->getDeclName().getAsString();
+    if (dups.count(c)) {
+      throw mangling_error("An automatically generated symbol conflicts with a C symbol `" + c +
+                           "`");
+    }
+  } else {
+    c = cfg.getCName(d);
+    if (dups.count(c)) {
+      unsigned cnt = 2;
+      std::string nc;
+      while (dups.count(nc = c + "_" + std::to_string(cnt))) cnt++;
+      c = nc;
+    }
+    dups.emplace(c);
+  }
+
+  cpp = cfg.getCXXQualifiedName(d);
+
+  ids.emplace(std::make_pair(orig, *this));
 }
 
 Identifier::Identifier(const QualType &qt, const Identifier &name, const IdentifierConfig &cfg) {
