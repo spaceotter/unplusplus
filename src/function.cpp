@@ -34,8 +34,7 @@ FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWri
   out.sf() << cxx_params.str();
 
   // Types redefined by unplusplus may conflict with the C++ ones
-  if (extc)
-    out.hf() << "#ifndef __cplusplus\n";
+  if (extc) out.hf() << "#ifndef __cplusplus\n";
 
   try {
     QualType qr = d->getReturnType();
