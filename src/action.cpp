@@ -16,14 +16,15 @@ using namespace clang;
 
 class UppASTConsumer : public ASTConsumer {
   DeclHandler &_dh;
+  CompilerInstance &_CI;
 
  public:
-  UppASTConsumer(DeclHandler &dh) : _dh(dh) {}
+  UppASTConsumer(DeclHandler &dh, CompilerInstance &CI) : _dh(dh), _CI(CI) {}
 
  protected:
   bool HandleTopLevelDecl(DeclGroupRef DG) override {
     for (auto d : DG) {
-      _dh.add(d);
+      _dh.add(d, _CI.getSema());
     }
     return true;
   }
@@ -48,7 +49,7 @@ class UppAction : public ASTFrontendAction {
  protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef InFile) override {
     _dh = std::make_unique<DeclHandler>(_out, CI.getASTContext());
-    return std::make_unique<UppASTConsumer>(*_dh);
+    return std::make_unique<UppASTConsumer>(*_dh, getCompilerInstance());
   }
 };
 

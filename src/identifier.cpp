@@ -353,27 +353,31 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   cpp = ss.str();
 }
 
-std::string unplusplus::getName(const NamedDecl *d) {
-  if (d->getDeclName())
-    return d->getDeclName().getAsString();
+std::string unplusplus::getName(const Decl *d) {
+  if (!d) return "<null>";
+  const NamedDecl *nd = dyn_cast<NamedDecl>(d);
+  if (!nd) return "<" + std::string(d->getDeclKindName()) + ">";
+  if (nd->getDeclName())
+    return nd->getDeclName().getAsString();
   else {
     // Give the printName override a chance to pick a different name before we
     // fall back to "(anonymous)".
     SmallString<64> NameBuffer;
     llvm::raw_svector_ostream NameOS(NameBuffer);
-    d->printName(NameOS);
+    nd->printName(NameOS);
     return NameBuffer.str().str();
   }
 }
 
 std::string IdentifierConfig::getCXXQualifiedName(const clang::Decl *d) const {
-  if (const auto *nd = dyn_cast_or_null<NamedDecl>(d)) {
+  if (!d) return "<null>";
+  if (const auto *nd = dyn_cast<NamedDecl>(d)) {
     std::string s;
     llvm::raw_string_ostream ArgOS(s);
     nd->getNameForDiagnostic(ArgOS, PP, true);
     return ArgOS.str();
   } else {
-    return "<none>";
+    return "<" + std::string(d->getDeclKindName()) + ">";
   }
 }
 

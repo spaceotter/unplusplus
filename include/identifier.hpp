@@ -78,7 +78,7 @@ struct Identifier {
 };
 
 // Get the decl name, or overridden print operator
-std::string getName(const clang::NamedDecl *d);
+std::string getName(const clang::Decl *d);
 
 // If the NamedDecl is an anonymous struct or enum, get the typedef that is giving it a name.
 const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);

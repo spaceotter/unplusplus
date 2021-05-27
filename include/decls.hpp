@@ -19,9 +19,11 @@ class DeclHandler {
   Outputs &_out;
   std::unordered_set<const clang::Decl *> _decls;
   std::unordered_set<const clang::NamedDecl *> _renamedInternals;
+  std::unordered_map<const clang::ClassTemplateSpecializationDecl *,
+                     std::unique_ptr<DeclWriterBase>>
+      _ctsd;
   std::queue<std::unique_ptr<DeclWriterBase>> _unfinished;
   std::queue<const clang::TemplateDecl *> _templates;
-  std::queue<std::unique_ptr<DeclWriterBase>> _unfinished_templates;
   IdentifierConfig _cfg;
 
  public:
@@ -30,23 +32,26 @@ class DeclHandler {
   const IdentifierConfig &cfg() const { return _cfg; }
 
   // Emit the forward declaration, then finish the declaration.
-  void add(const clang::Decl *d);
+  void add(const clang::Decl *d, clang::Sema &S);
 
   // Emit fully instantiated template specializations, and any additional specializations that were
   // discovered while emitting the known ones.
   void finishTemplates(clang::Sema &S);
 
   // Ensure that a type is declared already. Emit the forward declaration if there is one.
-  void forward(const clang::QualType &t);
+  void forward(const clang::QualType &t, clang::Sema &S);
 
   // Emit only the forward declaration and save it for later.
-  void forward(const clang::Decl *d);
+  void forward(const clang::Decl *d, clang::Sema &S);
 
   // Emit the forward declarations for the template arguments.
-  void forward(const llvm::ArrayRef<clang::TemplateArgument> &Args);
+  void forward(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S);
 
   // Rename the standard library internal with Identifier
   bool renameInternal(const clang::NamedDecl *d, const Identifier &i);
+
+  // Is this a renamed library internal declaration?
+  bool isRenamedInternal(const clang::NamedDecl *d);
 };
 
 // The base class for Decl handlers that write to the output files.

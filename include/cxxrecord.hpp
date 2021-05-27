@@ -19,6 +19,7 @@ struct CXXRecordDeclWriter : public DeclWriter<clang::CXXRecordDecl> {
   clang::CXXIndirectPrimaryBaseSet _indirect;
   std::string _keyword;
   bool _wroteMembers = false;
+  clang::Sema &_S;
 
   void writeMembers(Outputs &out);
   void writeFields(Outputs &out, const clang::CXXRecordDecl *d, std::string indent = "  ");
@@ -26,8 +27,8 @@ struct CXXRecordDeclWriter : public DeclWriter<clang::CXXRecordDecl> {
   void writeNonVirtualBases(Outputs &out, const clang::CXXRecordDecl *d);
 
  public:
-  CXXRecordDeclWriter(const type *d, DeclHandler &dh);
+  CXXRecordDeclWriter(const type *d, clang::Sema &S, DeclHandler &dh);
   virtual ~CXXRecordDeclWriter() override;
-  void makeInstantiation() { _makeInstantiation = true; }
+  void maybeDefine();
 };
 }  // namespace unplusplus

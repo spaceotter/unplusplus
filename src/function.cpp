@@ -8,7 +8,8 @@
 using namespace clang;
 using namespace unplusplus;
 
-FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWriter(d, dh) {
+FunctionDeclWriter::FunctionDeclWriter(const type *d, Sema &S, DeclHandler &dh)
+    : DeclWriter(d, dh) {
   if (_d->isTemplated()) {
     std::cerr << "Warning: Ignored templated function " << _i.cpp << std::endl;
     return;  // ignore unspecialized template decl
@@ -38,7 +39,7 @@ FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWri
 
   try {
     QualType qr = d->getReturnType();
-    _dh.forward(qr);
+    _dh.forward(qr, S);
     bool ret_param = qr->isRecordType() || qr->isReferenceType();
     if (ret_param) qr = _d->getASTContext().VoidTy;
 
@@ -47,7 +48,7 @@ FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWri
     const auto *method = dyn_cast<CXXMethodDecl>(d);
     if (method) {
       qp = _d->getASTContext().getRecordType(method->getParent());
-      _dh.forward(method->getParent());
+      _dh.forward(method->getParent(), S);
       if (method->isConst()) qp.addConst();
     }
     bool ctor = dyn_cast<CXXConstructorDecl>(d);
@@ -94,7 +95,7 @@ FunctionDeclWriter::FunctionDeclWriter(const type *d, DeclHandler &dh) : DeclWri
       if (pname.empty()) pname = cfg()._root + "arg_" + std::to_string(i);
       Identifier pn(pname, cfg());
       Identifier pi(pt, pn, cfg());
-      _dh.forward(pt);
+      _dh.forward(pt, S);
       proto << pi.c;
       call << pn.c;
       firstC = firstP = false;

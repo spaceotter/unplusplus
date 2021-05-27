@@ -9,6 +9,6 @@
 
 namespace unplusplus {
 struct FunctionDeclWriter : public DeclWriter<clang::FunctionDecl> {
-  FunctionDeclWriter(const type *d, DeclHandler &dh);
+  FunctionDeclWriter(const type *d, clang::Sema &S, DeclHandler &dh);
 };
 }  // namespace unplusplus
