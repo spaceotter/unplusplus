@@ -30,7 +30,6 @@ set(SOURCE_FILES
     src/outputs.cpp
     src/action.cpp
     src/filter.cpp
-    src/decls.cpp
     src/cxxrecord.cpp
     src/function.cpp
     src/enum.cpp

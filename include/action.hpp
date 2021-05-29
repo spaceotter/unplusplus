@@ -11,7 +11,6 @@
 
 #include <memory>
 
-#include "decls.hpp"
 #include "outputs.hpp"
 
 namespace unplusplus {
