@@ -8,10 +8,10 @@
 #include <clang/AST/Decl.h>
 #include <clang/Sema/Sema.h>
 
-#include <vector>
 #include <memory>
-#include <unordered_set>
 #include <queue>
+#include <unordered_set>
+#include <vector>
 
 #include "outputs.hpp"
 
@@ -45,7 +45,7 @@ class JobBase {
   void satisfy(JobBase *dependency);
 };
 
-template<class T>
+template <class T>
 class Job : public JobBase {
  protected:
   T *_d;
@@ -72,20 +72,9 @@ class TypedefJob : public Job<clang::TypedefDecl> {
   bool _replacesInternal = false;
   bool _anonymousStruct = false;
   std::string _keyword;
+
  public:
   TypedefJob(type *D, clang::Sema &S, JobManager &manager);
-  void impl() override;
-};
-
-struct ClassDeclareJob : public Job<clang::CXXRecordDecl> {
-  ClassDeclareJob(type *D, clang::Sema &S, JobManager &manager);
-  void impl() override;
-};
-
-class ClassDefineJob : public Job<clang::CXXRecordDecl> {
-  bool _makeInstantiation = false;
- public:
-  ClassDefineJob(type *D, clang::Sema &S, JobManager &manager);
   void impl() override;
 };
 
@@ -105,7 +94,7 @@ class JobManager {
   ~JobManager();
 
   Outputs &out() { return _out; }
-  IdentifierConfig &cfg() {return _cfg;}
+  IdentifierConfig &cfg() { return _cfg; }
   void flush();
 
   void create(clang::QualType QT, clang::Sema &S);
@@ -125,4 +114,4 @@ class JobManager {
   friend class ClassDeclareJob;
   friend class ClassDefineJob;
 };
-}
+}  // namespace unplusplus

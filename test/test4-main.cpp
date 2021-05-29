@@ -25,11 +25,12 @@ int main(int argc, char *argv[]) {
   std::cout << "C cow " << ((char *)&(upp_A_Boo_test.cow) - (char *)&upp_A_Boo_test) << std::endl;
   std::cout << "C++ cow " << ((char *)&(upp_A_Boo_test_cxx.cow) - (char *)&upp_A_Boo_test_cxx)
             << std::endl;
-  std::cout << "C loo " << ((char *)&(upp_A_Boo_test.loo) - (char *)&upp_A_Boo_test) << std::endl;
+  std::cout << "C loo " << ((char *)&(upp_A_Boo_test.A_Too_loo) - (char *)&upp_A_Boo_test)
+            << std::endl;
   std::cout << "C++ loo "
             << ((char *)&(((A::Moo *)&upp_A_Boo_test_cxx)->loo) - (char *)&upp_A_Boo_test_cxx)
             << std::endl;
-  std::cout << "C loo2 " << ((char *)&(upp_A_Boo_test.loo_2) - (char *)&upp_A_Boo_test)
+  std::cout << "C loo2 " << ((char *)&(upp_A_Boo_test.A_Too_loo_2) - (char *)&upp_A_Boo_test)
             << std::endl;
   std::cout << "C++ loo2 "
             << ((char *)&(((A::Oof *)&upp_A_Boo_test_cxx)->loo) - (char *)&upp_A_Boo_test_cxx)

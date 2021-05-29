@@ -9,8 +9,8 @@
 #include <clang/Index/IndexingAction.h>
 #include <clang/Index/IndexingOptions.h>
 
-#include "jobs.hpp"
 #include "decls.hpp"
+#include "jobs.hpp"
 
 using namespace unplusplus;
 using namespace clang;
@@ -21,7 +21,8 @@ class UppASTConsumer : public ASTConsumer {
   CompilerInstance &_CI;
 
  public:
-  UppASTConsumer(JobManager &jm, DeclHandler &dh, CompilerInstance &CI) : _jm(jm), _dh(dh), _CI(CI) {}
+  UppASTConsumer(JobManager &jm, DeclHandler &dh, CompilerInstance &CI)
+      : _jm(jm), _dh(dh), _CI(CI) {}
 
  protected:
   bool HandleTopLevelDecl(DeclGroupRef DG) override {

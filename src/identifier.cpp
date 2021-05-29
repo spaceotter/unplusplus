@@ -194,9 +194,13 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
       } else
         os << ND->getDeclName().getAsString();
     } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
-      if (!RD->getIdentifier())
-        throw mangling_error("Anonymous struct or class");
-      else
+      if (!RD->getIdentifier()) {
+        if (const auto *TD = getAnonTypedef(RD)) {
+          os << TD->getDeclName().getAsString();
+        } else {
+          throw mangling_error("Anonymous struct or class");
+        }
+      } else
         os << RD->getDeclName().getAsString();
     } else if (const auto *FD = dyn_cast<FunctionDecl>(DC)) {
       throw mangling_error("Decl inside a fuction");

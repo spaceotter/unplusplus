@@ -347,7 +347,8 @@ void DeclHandler::finishTemplates(clang::Sema &S) {
       if (const auto *ctd = dyn_cast<ClassTemplateDecl>(TD)) {
         for (const auto *ctsd : ctd->specializations()) {
           if (!_decls.count(ctsd)) {
-            std::cerr << "new class specialization" << std::endl;}
+            std::cerr << "new class specialization" << std::endl;
+          }
           add(ctsd, S);
         }
       } else if (const auto *ftd = dyn_cast<FunctionTemplateDecl>(TD)) {

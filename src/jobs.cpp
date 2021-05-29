@@ -8,6 +8,7 @@
 #include <clang/AST/DeclFriend.h>
 #include <clang/Basic/SourceManager.h>
 
+#include "cxxrecord.hpp"
 #include "filter.hpp"
 #include "function.hpp"
 
@@ -31,8 +32,7 @@ void JobBase::depends(JobBase *other) {
 void JobBase::depends(clang::Decl *D, bool define) {
   _manager.create(D, _s);
   depends(_manager._declarations.at(D));
-  if (define)
-    depends(_manager._definitions.at(D));
+  if (define) depends(_manager._definitions.at(D));
 }
 
 void JobBase::depends(clang::QualType QT, bool define) {
@@ -80,7 +80,7 @@ void JobBase::checkReady() {
 
 void JobBase::run() {
   if (_done) {
-    //std::cerr << "Error: " << _name << " ran again" << std::endl;
+    // std::cerr << "Error: " << _name << " ran again" << std::endl;
     return;
   }
   impl();
@@ -151,81 +151,6 @@ void TypedefJob::impl() {
   _out.hf() << "#endif // __cplusplus\n\n";
 }
 
-ClassDeclareJob::ClassDeclareJob(ClassDeclareJob::type *D, clang::Sema &S, JobManager &jm)
-    : Job<ClassDeclareJob::type>(D, S, jm) {
-  _name += " (Declaration)";
-  std::cout << "Job Created: " << _name << std::endl;
-  manager()._declarations[D] = this;
-
-  auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(_d);
-  if (CTSD) {
-    manager().create(CTSD->getSpecializedTemplate(), S);
-    manager().create(CTSD->getTemplateArgs().asArray(), S);
-  }
-
-  checkReady();
-}
-void ClassDeclareJob::impl() {
-  _out.hf() << "// " << _location << "\n";
-  _out.hf() << "// " << _name << "\n";
-}
-
-ClassDefineJob::ClassDefineJob(ClassDefineJob::type *D, clang::Sema &S, JobManager &jm)
-    : Job<ClassDefineJob::type>(D, S, jm) {
-  _name += " (Definition)";
-  std::cout << "Job Created: " << _name << std::endl;
-  manager()._definitions[_d] = this;
-
-  const auto *CCTSD = dyn_cast<ClassTemplateSpecializationDecl>(_d);
-  if (!_d->hasDefinition() && CCTSD &&
-      CCTSD->getTemplateSpecializationKind() != TSK_ExplicitSpecialization) {
-    if (CCTSD->getSpecializedTemplate()->getTemplatedDecl()->isCompleteDefinition()) {
-      // clang is "lazy" and doesn't add any members that weren't used. We can force them to be
-      // added.
-      auto *CTSD = const_cast<ClassTemplateSpecializationDecl *>(CCTSD);
-      std::cout << "Instantiating " << _name << std::endl;
-      SourceLocation L = CTSD->getLocation();
-      TemplateSpecializationKind TSK = TSK_ExplicitInstantiationDeclaration;
-      if (!_s.InstantiateClassTemplateSpecialization(L, CTSD, TSK, true)) {
-        _s.InstantiateClassTemplateSpecializationMembers(L, CTSD, TSK);
-        if (!manager().isRenamed(CTSD)) _makeInstantiation = true;
-      } else {
-        std::cerr << "Error: Couldn't instantiate " << _name << std::endl;
-      }
-    }  // Else: the template isn't defined yet, so we can't instantiate
-  }
-
-  _s.ForceDeclarationOfImplicitMembers(_d);
-
-  // initializer lists are special snowflakes that stop existing after an expression is evaluated
-  bool no_ctor = getName(_d) == "initializer_list" &&
-                 getName(dyn_cast_or_null<Decl>(_d->getParent())) == "std";
-
-  for (auto *d : _d->decls()) {
-    if (d->getAccess() == AccessSpecifier::AS_public ||
-        d->getAccess() == AccessSpecifier::AS_none) {
-      if (const auto *nd = dyn_cast<NamedDecl>(d)) {
-        // Drop it if this decl will be ambiguous with a constructor
-        if (getName(nd) == getName(_d) && !isa<CXXConstructorDecl>(nd)) continue;
-      }
-      if (const auto *cd = dyn_cast<CXXRecordDecl>(d)) {
-        // this one should have been handled already during field enumeration.
-        if (cd->isAnonymousStructOrUnion() && cd->isEmbeddedInDeclarator() &&
-            cd->isThisDeclarationADefinition())
-          continue;
-      }
-      if (no_ctor && isa<CXXConstructorDecl>(d)) continue;
-      manager().create(d, _s);
-    }
-  }
-
-  checkReady();
-}
-void ClassDefineJob::impl() {
-  _out.hf() << "// " << _location << "\n";
-  _out.hf() << "// " << _name << "\n";
-}
-
 void JobManager::flush() {
   while (_ready.size()) {
     _ready.front()->run();
@@ -254,7 +179,7 @@ void JobManager::create(QualType QT, clang::Sema &S) {
   } else if (const auto *pt = dyn_cast<InjectedClassNameType>(t)) {
     create(pt->getDecl(), S);
   } else if (const auto *pt = dyn_cast<BuiltinType>(t)) {
-    ; // No job
+    ;  // No job
   } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
     create(pt->getReturnType(), S);
     for (size_t i = 0; i < pt->getNumParams(); i++) {
@@ -282,6 +207,7 @@ void JobManager::create(Decl *D, clang::Sema &S) {
   }
 
   if (filterOut(D)) return;
+  if (D->isTemplated()) create(D->getDescribedTemplate(), S);
 
   if (auto *SD = dyn_cast<TypedefDecl>(D)) {
     // Can't emit code if the typedef depends on unprovided template parameters
@@ -289,14 +215,10 @@ void JobManager::create(Decl *D, clang::Sema &S) {
   } else if (const auto *SD = dyn_cast<ClassTemplatePartialSpecializationDecl>(D)) {
     // We can't emit code for a template that is only partially specialized
   } else if (auto *SD = dyn_cast<CXXRecordDecl>(D)) {
-    new ClassDeclareJob(SD, S, *this);
-    if (auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(SD)) {
-      if (CTSD->getSpecializedTemplate()->getTemplatedDecl()->isCompleteDefinition()) {
-        new ClassDefineJob(SD, S, *this);
-      }
-    } else {
-      new ClassDefineJob(SD, S, *this);
-    }
+    if (ClassDeclareJob::accept(SD)) new ClassDeclareJob(SD, S, *this);
+    // discovering a template when creating the declaration job can cause the definition to have
+    // already been created.
+    if (ClassDefineJob::accept(SD) && !_definitions.count(SD)) new ClassDefineJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<FunctionDecl>(D)) {
     if (FunctionJob::accept(SD)) new FunctionJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<TemplateDecl>(D)) {
@@ -306,7 +228,7 @@ void JobManager::create(Decl *D, clang::Sema &S) {
         for (auto *Special : CTD->specializations()) {
           if (!_definitions.count(Special)) {
             Special->setSpecializedTemplate(CTD);
-            new ClassDefineJob(Special, S, *this);
+            if (ClassDefineJob::accept(Special)) new ClassDefineJob(Special, S, *this);
           }
         }
       }

@@ -220,7 +220,7 @@ void FunctionJob::impl() {
     if (!firstP) proto << ", ";
     proto << Identifier(_d->getASTContext().getPointerType(qp), Identifier(cfg()._this, cfg()),
                         cfg())
-        .c;
+                 .c;
     firstP = false;
   }
   bool firstC = true;
