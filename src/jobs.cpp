@@ -151,6 +151,29 @@ void TypedefJob::impl() {
   _out.hf() << "#endif // __cplusplus\n\n";
 }
 
+VarJob::VarJob(VarJob::type *D, Sema &S, JobManager &jm) : Job<VarJob::type>(D, S, jm) {
+  std::cout << "Job Created: " << _name << std::endl;
+  if (auto *VTD = _d->getDescribedVarTemplate()) manager().create(VTD, S);
+  if (auto *VTSD = dyn_cast<VarTemplateSpecializationDecl>(_d))
+    manager().create(VTSD->getTemplateInstantiationArgs().asArray(), S);
+
+  _ptr = _d->getASTContext().getPointerType(_d->getType());
+  _ptr.addConst();
+  depends(_ptr, false);
+  checkReady();
+}
+
+void VarJob::impl() {
+  Identifier i(_d, cfg());
+  Identifier vi(_ptr, i, cfg());
+  _out.hf() << "// " << _location << "\n";
+  _out.hf() << "// " << _name << "\n";
+  _out.hf() << "extern " << vi.c << ";\n\n";
+  _out.sf() << "// " << _location << "\n";
+  _out.sf() << "// " << _name << "\n";
+  _out.sf() << vi.c << " = &(" << i.cpp << ");\n\n";
+}
+
 void JobManager::flush() {
   while (_ready.size()) {
     _ready.front()->run();
@@ -161,7 +184,10 @@ void JobManager::flush() {
 JobManager::~JobManager() {
   for (auto &j : _jobs) {
     if (!j->isDone()) {
-      std::cerr << "Incomplete job: " << j->name();
+      std::cerr << "Incomplete job: " << j->name() << std::endl;
+      for (auto *d : j->dependencies()) {
+        std::cerr << "  -> Needs: " << d->name() << std::endl;
+      }
     }
   }
 }
@@ -221,6 +247,8 @@ void JobManager::create(Decl *D, clang::Sema &S) {
     if (ClassDefineJob::accept(SD, cfg(), S) && !isDefined(SD)) new ClassDefineJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<FunctionDecl>(D)) {
     if (FunctionJob::accept(SD)) new FunctionJob(SD, S, *this);
+  } else if (auto *SD = dyn_cast<VarDecl>(D)) {
+    if (!SD->isTemplated() && !prevDeclared(SD)) new VarJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<TemplateDecl>(D)) {
     _templates.push(SD);
     if (auto *CTD = dyn_cast<ClassTemplateDecl>(SD)) {
@@ -342,6 +370,15 @@ bool JobManager::isDefined(clang::Decl *D) {
     }
     prev.push_back(D);
     D = D->getPreviousDecl();
+  }
+  return false;
+}
+
+bool JobManager::prevDeclared(clang::Decl *D) {
+  Decl *P = D->getPreviousDecl();
+  while (P) {
+    if (_decls.count(P)) return true;
+    P = P->getPreviousDecl();
   }
   return false;
 }

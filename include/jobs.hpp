@@ -36,6 +36,7 @@ class JobBase {
   JobManager &manager() { return _manager; }
   bool isDone() const { return _done; }
   const std::string &name() const { return _name; }
+  const std::unordered_set<JobBase *> &dependencies() { return _depends; }
 
   void checkReady();
   void run();
@@ -78,6 +79,14 @@ class TypedefJob : public Job<clang::TypedefDecl> {
   void impl() override;
 };
 
+class VarJob : public Job<clang::VarDecl> {
+  clang::QualType _ptr;
+
+ public:
+  VarJob(type *D, clang::Sema &S, JobManager &jm);
+  void impl() override;
+};
+
 class JobManager {
   Outputs &_out;
   std::unordered_set<clang::Decl *> _decls;
@@ -102,6 +111,7 @@ class JobManager {
   void create(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S);
 
   bool isDefined(clang::Decl *D);
+  bool prevDeclared(clang::Decl *D);
 
   // Rename the filtered-out declaration using the new declaration that isn't filtered out.
   bool renameFiltered(clang::NamedDecl *D, clang::NamedDecl *New);
