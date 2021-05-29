@@ -218,8 +218,7 @@ void JobManager::create(Decl *D, clang::Sema &S) {
     if (ClassDeclareJob::accept(SD)) new ClassDeclareJob(SD, S, *this);
     // discovering a template when creating the declaration job can cause the definition to have
     // already been created.
-    if (ClassDefineJob::accept(SD, cfg(), S) && !_definitions.count(SD))
-      new ClassDefineJob(SD, S, *this);
+    if (ClassDefineJob::accept(SD, cfg(), S) && !isDefined(SD)) new ClassDefineJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<FunctionDecl>(D)) {
     if (FunctionJob::accept(SD)) new FunctionJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<TemplateDecl>(D)) {
@@ -227,9 +226,10 @@ void JobManager::create(Decl *D, clang::Sema &S) {
     if (auto *CTD = dyn_cast<ClassTemplateDecl>(SD)) {
       if (CTD->getTemplatedDecl()->isCompleteDefinition()) {
         for (auto *Special : CTD->specializations()) {
-          if (!_definitions.count(Special)) {
+          if (!isDefined(Special)) {
             Special->setSpecializedTemplate(CTD);
-            if (ClassDefineJob::accept(Special, cfg(), S)) new ClassDefineJob(Special, S, *this);
+            if (ClassDefineJob::accept(Special, cfg(), S) && !isDefined(Special))
+              new ClassDefineJob(Special, S, *this);
           }
         }
       }
@@ -329,6 +329,14 @@ void JobManager::create(const llvm::ArrayRef<clang::TemplateArgument> &Args, cla
         break;
     }
   }
+}
+
+bool JobManager::isDefined(clang::Decl *D) {
+  while (D) {
+    if (_definitions.count(D)) return true;
+    D = D->getPreviousDecl();
+  }
+  return false;
 }
 
 bool JobManager::renameFiltered(NamedDecl *D, NamedDecl *New) {

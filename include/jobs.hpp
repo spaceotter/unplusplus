@@ -101,6 +101,8 @@ class JobManager {
   void create(clang::Decl *D, clang::Sema &S);
   void create(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S);
 
+  bool isDefined(clang::Decl *D);
+
   // Rename the filtered-out declaration using the new declaration that isn't filtered out.
   bool renameFiltered(clang::NamedDecl *D, clang::NamedDecl *New);
 
