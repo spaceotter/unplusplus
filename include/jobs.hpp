@@ -10,7 +10,7 @@
 
 #include <memory>
 #include <queue>
-#include <unordered_set>
+#include <set>
 #include <vector>
 
 #include "outputs.hpp"
@@ -18,16 +18,24 @@
 namespace unplusplus {
 class JobManager;
 
+// The base class for jobs, that depend on other jobs. *All* dependencies should be established in
+// the constructor of derived classes. The derived constructor should call checkReady() at the end,
+// or the job may not run. Then, the overridden impl() will be called when all dependencies are
+// satisfied.
 class JobBase {
   JobManager &_manager;
-  std::unordered_set<JobBase *> _depends;
-  std::unordered_set<JobBase *> _dependent;
+  // these must be *ordered* sets, or the declarations are not processed in a deterministic order!
+  // This is very important because identical symbols are renamed depending on order.
+  std::set<JobBase *> _depends; // Dependencies of this job (minus those that are done)
+  std::set<JobBase *> _dependent; // Jobs that depend on this job
   bool _done = false;
 
  protected:
   Outputs &_out;
   std::string _name;
   clang::Sema &_s;
+  // This function should be overidden as the *only* code that writes to the output(s), and it
+  // should *not* set any dependencies.
   virtual void impl() = 0;
 
  public:
@@ -36,9 +44,11 @@ class JobBase {
   JobManager &manager() { return _manager; }
   bool isDone() const { return _done; }
   const std::string &name() const { return _name; }
-  const std::unordered_set<JobBase *> &dependencies() { return _depends; }
+  const std::set<JobBase *> &dependencies() { return _depends; }
 
+  // Enqueue the job if it has no remaining dependencies.
   void checkReady();
+  // Run the job and satisfy its dependencies.
   void run();
   void depends(JobBase *other);
   void depends(clang::Decl *D, bool define);
@@ -46,6 +56,7 @@ class JobBase {
   void satisfy(JobBase *dependency);
 };
 
+// A Base class for Jobs that process a clang::Decl.
 template <class T>
 class Job : public JobBase {
  protected:
