@@ -345,11 +345,25 @@ void DeclHandler::finishTemplates(clang::Sema &S) {
     if (_templates.size()) {
       const TemplateDecl *TD = _templates.front();
       if (const auto *ctd = dyn_cast<ClassTemplateDecl>(TD)) {
-        for (const auto *ctsd : ctd->specializations()) add(ctsd, S);
+        for (const auto *ctsd : ctd->specializations()) {
+          if (!_decls.count(ctsd)) {
+            std::cerr << "new class specialization" << std::endl;}
+          add(ctsd, S);
+        }
       } else if (const auto *ftd = dyn_cast<FunctionTemplateDecl>(TD)) {
-        for (const auto *ftsd : ftd->specializations()) add(ftsd, S);
+        for (const auto *ftsd : ftd->specializations()) {
+          if (!_decls.count(ftsd)) {
+            std::cerr << "new function specialization" << std::endl;
+          }
+          add(ftsd, S);
+        }
       } else if (const auto *vtd = dyn_cast<VarTemplateDecl>(TD)) {
-        for (const auto *vtsd : vtd->specializations()) add(vtsd, S);
+        for (const auto *vtsd : vtd->specializations()) {
+          if (!_decls.count(vtsd)) {
+            std::cerr << "new variable specialization" << std::endl;
+          }
+          add(vtsd, S);
+        }
       } else {
         std::cerr << "Warning: template " << cfg().getCXXQualifiedName(TD) << " has unknown kind "
                   << TD->getDeclKindName() << std::endl;

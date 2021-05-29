@@ -20,6 +20,7 @@ CXXRecordDeclWriter::CXXRecordDeclWriter(const type *d, Sema &S, DeclHandler &dh
     std::cerr << "Warning: Ignored templated class " << _i.cpp << std::endl;
     return;  // ignore unspecialized template decl
   }
+  std::cerr << "Declare " << _i.cpp << std::endl;
   SubOutputs out(_out);
   preamble(out.hf());
 

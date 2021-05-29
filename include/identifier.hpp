@@ -49,6 +49,9 @@ struct IdentifierConfig {
   // Get the decl name, with qualifier and template arguments
   std::string getCXXQualifiedName(const clang::Decl *d) const;
 
+  // Get an informative name, functions will have return & arguments
+  std::string getDebugName(const clang::Decl *d);
+
   // Prints an alternate mangling for template arguments
   void printCTemplateArgs(std::ostream &os,
                           const llvm::ArrayRef<clang::TemplateArgument> &Args) const;

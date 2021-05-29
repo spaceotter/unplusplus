@@ -9,22 +9,26 @@
 #include <clang/Index/IndexingAction.h>
 #include <clang/Index/IndexingOptions.h>
 
+#include "jobs.hpp"
 #include "decls.hpp"
 
 using namespace unplusplus;
 using namespace clang;
 
 class UppASTConsumer : public ASTConsumer {
+  JobManager &_jm;
   DeclHandler &_dh;
   CompilerInstance &_CI;
 
  public:
-  UppASTConsumer(DeclHandler &dh, CompilerInstance &CI) : _dh(dh), _CI(CI) {}
+  UppASTConsumer(JobManager &jm, DeclHandler &dh, CompilerInstance &CI) : _jm(jm), _dh(dh), _CI(CI) {}
 
  protected:
   bool HandleTopLevelDecl(DeclGroupRef DG) override {
     for (auto d : DG) {
-      _dh.add(d, _CI.getSema());
+      _jm.create(d, _CI.getSema());
+      _jm.flush();
+      //_dh.add(d, _CI.getSema());
     }
     return true;
   }
@@ -37,19 +41,22 @@ class UppASTConsumer : public ASTConsumer {
 class UppAction : public ASTFrontendAction {
   Outputs &_out;
   std::unique_ptr<DeclHandler> _dh;
+  std::unique_ptr<JobManager> _jm;
 
  public:
   UppAction(Outputs &out) : _out(out) {}
   virtual void ExecuteAction() override {
     ASTFrontendAction::ExecuteAction();
     CompilerInstance &CI = getCompilerInstance();
-    _dh->finishTemplates(CI.getSema());
+    //_dh->finishTemplates(CI.getSema());
+    _jm->finishTemplates(CI.getSema());
   }
 
  protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef InFile) override {
+    _jm = std::make_unique<JobManager>(_out, CI.getASTContext());
     _dh = std::make_unique<DeclHandler>(_out, CI.getASTContext());
-    return std::make_unique<UppASTConsumer>(*_dh, getCompilerInstance());
+    return std::make_unique<UppASTConsumer>(*_jm, *_dh, getCompilerInstance());
   }
 };
 

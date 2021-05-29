@@ -374,6 +374,29 @@ std::string unplusplus::getName(const Decl *d) {
   }
 }
 
+std::string IdentifierConfig::getDebugName(const clang::Decl *d) {
+  std::string name = std::string(d->getDeclKindName()) + " ";
+  if (const auto *fd = dyn_cast_or_null<FunctionDecl>(d)) {
+    std::string s;
+    llvm::raw_string_ostream cxx_params(s);
+    cxx_params << getName(fd) << "(";
+    bool first = true;
+    for (auto *p : fd->parameters()) {
+      if (!first) cxx_params << ", ";
+      p->getType().print(cxx_params, PP, getName(p));
+      first = false;
+    }
+    cxx_params << ")";
+    cxx_params.flush();
+    llvm::raw_string_ostream namestream(name);
+    fd->getReturnType().print(namestream, PP, s);
+    namestream.flush();
+  } else {
+    name += getCXXQualifiedName(d);
+  }
+  return name;
+}
+
 std::string IdentifierConfig::getCXXQualifiedName(const clang::Decl *d) const {
   if (!d) return "<null>";
   if (const auto *nd = dyn_cast<NamedDecl>(d)) {
