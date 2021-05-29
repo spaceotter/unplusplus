@@ -278,7 +278,7 @@ ClassDeclareJob::ClassDeclareJob(ClassDeclareJob::type *D, clang::Sema &S, JobMa
     : Job<ClassDeclareJob::type>(D, S, jm) {
   _name += " (Declaration)";
   std::cout << "Job Created: " << _name << std::endl;
-  manager()._declarations[D] = this;
+  manager().declare(_d, this);
 
   auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(_d);
   if (CTSD) {
@@ -333,7 +333,7 @@ ClassDefineJob::ClassDefineJob(ClassDefineJob::type *D, clang::Sema &S, JobManag
     : Job<ClassDefineJob::type>(D, S, jm) {
   _name += " (Definition)";
   std::cout << "Job Created: " << _name << std::endl;
-  manager()._definitions[_d] = this;
+  manager().define(D, this);
   depends(D, false);
 
   _s.ForceDeclarationOfImplicitMembers(_d);

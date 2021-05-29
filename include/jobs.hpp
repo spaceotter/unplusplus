@@ -110,6 +110,8 @@ class JobManager {
   void create(clang::Decl *D, clang::Sema &S);
   void create(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S);
 
+  void declare(clang::Decl *D, JobBase *J) { _declarations[D] = J; }
+  void define(clang::Decl *D, JobBase *J) { _definitions[D] = J; }
   bool isDefined(clang::Decl *D);
   bool prevDeclared(clang::Decl *D);
 
@@ -123,7 +125,5 @@ class JobManager {
   void finishTemplates(clang::Sema &S);
 
   friend class JobBase;
-  friend class ClassDeclareJob;
-  friend class ClassDefineJob;
 };
 }  // namespace unplusplus

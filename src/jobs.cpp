@@ -9,6 +9,7 @@
 #include <clang/Basic/SourceManager.h>
 
 #include "cxxrecord.hpp"
+#include "enum.hpp"
 #include "filter.hpp"
 #include "function.hpp"
 
@@ -249,6 +250,8 @@ void JobManager::create(Decl *D, clang::Sema &S) {
     if (FunctionJob::accept(SD)) new FunctionJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<VarDecl>(D)) {
     if (!SD->isTemplated() && !prevDeclared(SD)) new VarJob(SD, S, *this);
+  } else if (auto *SD = dyn_cast<EnumDecl>(D)) {
+    new EnumJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<TemplateDecl>(D)) {
     _templates.push(SD);
     if (auto *CTD = dyn_cast<ClassTemplateDecl>(SD)) {
