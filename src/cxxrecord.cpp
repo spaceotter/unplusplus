@@ -307,37 +307,34 @@ void ClassDeclareJob::impl() {
   _out.hf() << "#endif // __cplusplus\n\n";
 }
 
-bool ClassDefineJob::accept(const type *D) {
+bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
   auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(D);
-  return ClassDeclareJob::accept(D) &&
-         (!CTSD || CTSD->getSpecializedTemplate()->getTemplatedDecl()->isCompleteDefinition());
+  // If an explicit specialiation already appeared, it may be that it was put there to create a
+  // hidden definition.
+  if (!D->hasDefinition() && CTSD &&
+      CTSD->getTemplateSpecializationKind() != TSK_ExplicitSpecialization &&
+      CTSD->getSpecializedTemplate()->getTemplatedDecl()->isCompleteDefinition()) {
+    // clang is "lazy" and doesn't add any members that weren't used. We can force them to be
+    // added.
+    std::cout << "Instantiating " << cfg.getDebugName(D) << std::endl;
+    SourceLocation L = CTSD->getLocation();
+    TemplateSpecializationKind TSK = TSK_ExplicitInstantiationDeclaration;
+    if (!S.InstantiateClassTemplateSpecialization(L, CTSD, TSK, true)) {
+      S.InstantiateClassTemplateSpecializationMembers(L, CTSD, TSK);
+    } else {
+      std::cerr << "Error: Couldn't instantiate " << cfg.getDebugName(D) << std::endl;
+    }
+  }
+
+  return ClassDeclareJob::accept(D) && D->hasDefinition();
 }
 
 ClassDefineJob::ClassDefineJob(ClassDefineJob::type *D, clang::Sema &S, JobManager &jm)
     : Job<ClassDefineJob::type>(D, S, jm) {
   _name += " (Definition)";
-  std::cout << "Job Created: " << _name << " " << D << std::endl;
+  std::cout << "Job Created: " << _name << std::endl;
   manager()._definitions[_d] = this;
   depends(D, false);
-
-  const auto *CCTSD = dyn_cast<ClassTemplateSpecializationDecl>(_d);
-  if (!_d->hasDefinition() && CCTSD &&
-      CCTSD->getTemplateSpecializationKind() != TSK_ExplicitSpecialization) {
-    if (CCTSD->getSpecializedTemplate()->getTemplatedDecl()->isCompleteDefinition()) {
-      // clang is "lazy" and doesn't add any members that weren't used. We can force them to be
-      // added.
-      auto *CTSD = const_cast<ClassTemplateSpecializationDecl *>(CCTSD);
-      std::cout << "Instantiating " << _name << std::endl;
-      SourceLocation L = CTSD->getLocation();
-      TemplateSpecializationKind TSK = TSK_ExplicitInstantiationDeclaration;
-      if (!_s.InstantiateClassTemplateSpecialization(L, CTSD, TSK, true)) {
-        _s.InstantiateClassTemplateSpecializationMembers(L, CTSD, TSK);
-        if (!manager().isRenamed(CTSD)) _makeInstantiation = true;
-      } else {
-        std::cerr << "Error: Couldn't instantiate " << _name << std::endl;
-      }
-    }  // Else: the template isn't defined yet, so we can't instantiate
-  }
 
   _s.ForceDeclarationOfImplicitMembers(_d);
 

@@ -50,7 +50,7 @@ struct IdentifierConfig {
   std::string getCXXQualifiedName(const clang::Decl *d) const;
 
   // Get an informative name, functions will have return & arguments
-  std::string getDebugName(const clang::Decl *d);
+  std::string getDebugName(const clang::Decl *d) const;
 
   // Prints an alternate mangling for template arguments
   void printCTemplateArgs(std::ostream &os,

@@ -62,7 +62,7 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
   void writeFields(std::vector<FieldInfo> &list, std::string indent = "  ");
 
  public:
-  static bool accept(const type *D);
+  static bool accept(type *D, const IdentifierConfig &cfg, clang::Sema &S);
   ClassDefineJob(type *D, clang::Sema &S, JobManager &manager);
   void impl() override;
 };

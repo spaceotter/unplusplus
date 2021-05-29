@@ -378,7 +378,7 @@ std::string unplusplus::getName(const Decl *d) {
   }
 }
 
-std::string IdentifierConfig::getDebugName(const clang::Decl *d) {
+std::string IdentifierConfig::getDebugName(const clang::Decl *d) const {
   std::string name = std::string(d->getDeclKindName()) + " ";
   if (const auto *fd = dyn_cast_or_null<FunctionDecl>(d)) {
     std::string s;
