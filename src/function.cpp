@@ -19,7 +19,28 @@ FunctionJob::FunctionJob(FunctionJob::type *D, clang::Sema &S, JobManager &jm)
     manager().create(_d->getDescribedFunctionTemplate(), S);
     manager().create(l->asArray(), S);
   }
-  depends(_d->getReturnType(), false);
+
+  _returnType = _d->getReturnType();
+  _returnParam = _returnType->isRecordType() || _returnType->isReferenceType();
+  if (_returnParam) _returnType = _d->getASTContext().VoidTy;
+  const auto &AC = _d->getASTContext();
+  if (auto *Ctor = dyn_cast<CXXConstructorDecl>(_d))
+    _returnType = AC.getPointerType(AC.getRecordType(Ctor->getParent()));
+  depends(_returnType, false);
+
+  if (_returnParam) {
+    _returnParamType = _d->getReturnType().getDesugaredType(_d->getASTContext());
+    _returnParamType.removeLocalConst();
+    if (_returnParamType->isRecordType()) {
+      _returnParamType = _d->getASTContext().getPointerType(_returnParamType);
+    } else if (_returnParamType->isReferenceType()) {
+      _returnParamType = _returnParamType.getNonReferenceType();
+      _returnParamType.removeLocalConst();
+      _returnParamType = _d->getASTContext().getPointerType(_returnParamType);
+    }
+    depends(_returnParamType, false);
+  }
+
   _paramTypes.resize(_d->getNumParams());
   _paramDeref.resize(_d->getNumParams(), false);
   for (size_t i = 0; i < _d->getNumParams(); i++) {
@@ -52,10 +73,6 @@ void FunctionJob::impl() {
   // Types redefined by unplusplus may conflict with the C++ ones
   if (extc) _out.hf() << "#ifndef __cplusplus\n";
 
-  QualType qr = _d->getReturnType();
-  bool ret_param = qr->isRecordType() || qr->isReferenceType();
-  if (ret_param) qr = _d->getASTContext().VoidTy;
-
   QualType qp;
   const auto *method = dyn_cast<CXXMethodDecl>(_d);
   if (method) {
@@ -64,24 +81,14 @@ void FunctionJob::impl() {
   }
   bool ctor = isa<CXXConstructorDecl>(_d);
   bool dtor = isa<CXXDestructorDecl>(_d);
-  if (ctor) qr = _d->getASTContext().getPointerType(qp);
 
   std::stringstream proto;
   std::stringstream call;
   Identifier i(_d, cfg());
   proto << i.c << "(";
   bool firstP = true;
-  if (ret_param) {
-    QualType retParamT = _d->getReturnType().getDesugaredType(_d->getASTContext());
-    retParamT.removeLocalConst();
-    if (retParamT->isRecordType()) {
-      retParamT = _d->getASTContext().getPointerType(retParamT);
-    } else if (retParamT->isReferenceType()) {
-      retParamT = retParamT.getNonReferenceType();
-      retParamT.removeLocalConst();
-      retParamT = _d->getASTContext().getPointerType(retParamT);
-    }
-    proto << Identifier(retParamT, Identifier(cfg()._return, cfg()), cfg()).c;
+  if (_returnParam) {
+    proto << Identifier(_returnParamType, Identifier(cfg()._return, cfg()), cfg()).c;
     firstP = false;
   }
   if (method && !ctor) {
@@ -107,7 +114,7 @@ void FunctionJob::impl() {
     firstC = firstP = false;
   }
   proto << ")";
-  Identifier signature(qr, Identifier(proto.str()), cfg());
+  Identifier signature(_returnType, Identifier(proto.str()), cfg());
   _out.hf() << signature.c << ";\n";
   if (extc) {
     _out.hf() << "#endif // !__cplusplus\n\n";
@@ -119,7 +126,7 @@ void FunctionJob::impl() {
     if (dtor) {
       _out.sf() << "delete " << cfg()._this;
     } else {
-      if (ret_param) {
+      if (_returnParam) {
         _out.sf() << "*" << cfg()._return << " = ";
         if (method)
           _out.sf() << cfg()._this << "->" << fname;

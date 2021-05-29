@@ -10,6 +10,9 @@
 namespace unplusplus {
 class FunctionJob : public Job<clang::FunctionDecl> {
   std::vector<clang::QualType> _paramTypes;
+  clang::QualType _returnType;
+  clang::QualType _returnParamType;
+  bool _returnParam;
   std::vector<bool> _paramDeref;
 
  public:
