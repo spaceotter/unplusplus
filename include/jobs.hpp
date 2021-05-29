@@ -70,7 +70,7 @@ extern template class Job<clang::VarDecl>;
 extern template class Job<clang::EnumDecl>;
 
 class TypedefJob : public Job<clang::TypedefDecl> {
-  bool _replacesInternal = false;
+  bool _replacesFiltered = false;
   bool _anonymousStruct = false;
   std::string _keyword;
 

@@ -24,7 +24,7 @@ JobBase::JobBase(JobManager &manager, clang::Sema &S)
 IdentifierConfig &JobBase::cfg() { return _manager.cfg(); }
 
 void JobBase::depends(JobBase *other) {
-  if (!other->_done) {
+  if (other && !other->_done) {
     _depends.emplace(other);
     other->_dependent.emplace(this);
   }
@@ -121,7 +121,9 @@ TypedefJob::TypedefJob(TypedefJob::type *D, Sema &S, JobManager &manage)
       // this typedef renames a library internal class. Its decl was dropped earlier, so we can't
       // refer to it. Substitute the name of this typedef instead, and forward declare the missing
       // type.
-      _replacesInternal = manager().renameFiltered(td, _d);
+      _replacesFiltered = manager().renameFiltered(td, _d);
+      if (_replacesFiltered)
+        manager().declare(td, this);
       if (td->isUnion())
         _keyword = "union";
       else if (td->isEnum())
@@ -139,7 +141,7 @@ void TypedefJob::impl() {
   _out.hf() << "// " << _name << "\n";
   Identifier i(_d, cfg());
   _out.hf() << "#ifdef __cplusplus\n";
-  if (_replacesInternal) {
+  if (_replacesFiltered) {
     _out.hf() << "typedef " << i.cpp << " " << i.c << ";\n";
     _out.hf() << "#else\n";
     _out.hf() << "typedef " << _keyword << " " << i.c << cfg()._struct << " " << i.c << ";\n";
@@ -230,6 +232,14 @@ void JobManager::create(Decl *D, clang::Sema &S) {
   // The declaration is from a C header that can just be included by the library
   if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem) {
     _out.addCHeader(SEntry.getFile().getName().str());
+    // Create a dummy for jobs needing this type to depend on
+    if (isa<TypeDecl>(D)) {
+      declare(D, nullptr);
+      if (auto *TD = dyn_cast<TagDecl>(D)) {
+        if (TD->isCompleteDefinition() || TD->isBeingDefined())
+          define(D, nullptr);
+      }
+    }
     return;
   }
 
