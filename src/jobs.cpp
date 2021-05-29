@@ -332,8 +332,15 @@ void JobManager::create(const llvm::ArrayRef<clang::TemplateArgument> &Args, cla
 }
 
 bool JobManager::isDefined(clang::Decl *D) {
+  std::vector<Decl *> prev;
   while (D) {
-    if (_definitions.count(D)) return true;
+    if (_definitions.count(D)) {
+      for (auto *P : prev) {
+        _definitions[P] = _definitions[D];
+      }
+      return true;
+    }
+    prev.push_back(D);
     D = D->getPreviousDecl();
   }
   return false;
