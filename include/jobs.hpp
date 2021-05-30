@@ -10,7 +10,9 @@
 
 #include <memory>
 #include <queue>
-#include <set>
+#include <list>
+#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 #include "outputs.hpp"
@@ -24,10 +26,10 @@ class JobManager;
 // satisfied.
 class JobBase {
   JobManager &_manager;
-  // these must be *ordered* sets, or the declarations are not processed in a deterministic order!
+  // these must be *ordered*, or the declarations are not processed in a deterministic order!
   // This is very important because identical symbols are renamed depending on order.
-  std::set<JobBase *> _depends; // Dependencies of this job (minus those that are done)
-  std::set<JobBase *> _dependent; // Jobs that depend on this job
+  std::list<JobBase *> _depends; // Dependencies of this job (minus those that are done)
+  std::list<JobBase *> _dependent; // Jobs that depend on this job
   bool _done = false;
 
  protected:
@@ -44,7 +46,7 @@ class JobBase {
   JobManager &manager() { return _manager; }
   bool isDone() const { return _done; }
   const std::string &name() const { return _name; }
-  const std::set<JobBase *> &dependencies() { return _depends; }
+  const std::list<JobBase *> &dependencies() { return _depends; }
 
   // Enqueue the job if it has no remaining dependencies.
   void checkReady();

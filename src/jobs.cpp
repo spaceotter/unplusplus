@@ -25,8 +25,8 @@ IdentifierConfig &JobBase::cfg() { return _manager.cfg(); }
 
 void JobBase::depends(JobBase *other) {
   if (other && !other->_done) {
-    _depends.emplace(other);
-    other->_dependent.emplace(this);
+    _depends.emplace_back(other);
+    other->_dependent.emplace_back(this);
   }
 }
 
@@ -100,7 +100,7 @@ void JobBase::run() {
 }
 
 void JobBase::satisfy(JobBase *dependency) {
-  _depends.erase(dependency);
+  _depends.remove(dependency);
   if (_depends.empty()) {
     _manager._ready.push(this);
   }
