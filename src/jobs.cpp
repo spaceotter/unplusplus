@@ -327,10 +327,7 @@ void JobManager::create(Decl *D, clang::Sema &S) {
   } else if (auto *SD = dyn_cast<NamespaceAliasDecl>(D)) {
     create(SD->getNamespace(), S);
   } else if (auto *SD = dyn_cast<FriendDecl>(D)) {
-    if (SD->getFriendDecl())
-      create(SD->getFriendDecl(), S);
-    else if (SD->getFriendType())
-      create(SD->getFriendType()->getType(), S);
+    // Ignore: the friend declaration may be for something that doesn't exist
   } else if (auto *SD = dyn_cast<NamespaceDecl>(D)) {
     for (auto ssd : SD->decls()) create(ssd, S);
   } else if (auto *SD = dyn_cast<LinkageSpecDecl>(D)) {
