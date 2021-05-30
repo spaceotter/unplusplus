@@ -67,7 +67,7 @@ bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
     }
   }
 
-  return ClassDeclareJob::accept(D) && D->hasDefinition();
+  return ClassDeclareJob::accept(D) && D->isCompleteDefinition();
 }
 
 ClassDefineJob::ClassDefineJob(ClassDefineJob::type *D, clang::Sema &S, JobManager &jm)
@@ -108,7 +108,7 @@ ClassDefineJob::ClassDefineJob(ClassDefineJob::type *D, clang::Sema &S, JobManag
 
 void ClassDefineJob::findFields() {
   if (!_d->hasDefinition() || !_d->isCompleteDefinition()) return;
-  if (_fields.size()) return;
+  if (_fields.subFields.size()) return;
 
   // The procedure here has to mimic clang's RecordLayoutBuilder.cpp to order the fields of the base
   // classes correctly. It may not work with the Microsoft ABI.
@@ -117,11 +117,11 @@ void ClassDefineJob::findFields() {
   addFields(_d, _fields);
   findVirtualBaseFields(_d);
   if (_d->isEmpty()) {
-    _fields.push_back({nullptr, _d, "__empty", _d->getASTContext().CharTy});
+    _fields.sub(nullptr, _d, "__empty", _d->getASTContext().CharTy);
   }
 }
 
-void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, std::vector<FieldInfo> &list) {
+void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, FieldInfo &list) {
   const ASTContext &AC = _d->getASTContext();
 
   for (const auto *f : d->fields()) {
@@ -135,9 +135,11 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, std::vector<FieldI
       const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(rd->getParent());
       if (rd->isEmbeddedInDeclarator() && rd->isThisDeclarationADefinition() &&
           !Identifier::ids.count(rd) && dc == d) {
-        list.push_back({f, d, name, QT, rd->isUnion()});
-        addFields(rd, list.back().subFields);
-        _nameCount[name] += 1;
+        list.sub(f, d, name, QT, rd->isUnion());
+        // the scope is shared
+        if (name.empty())
+          list.subFields.back().nameCount = list.nameCount;
+        addFields(rd, list.subFields.back());
         continue;
       }
     } else if (QT->isEnumeralType()) {
@@ -153,9 +155,8 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, std::vector<FieldI
     }
 
     sanitizeType(QT, AC);
-    list.push_back({f, d, name, QT});
+    list.sub(f, d, name, QT);
     depends(QT, true);
-    _nameCount[name] += 1;
   }
 }
 
@@ -190,8 +191,7 @@ void ClassDefineJob::findNonVirtualBaseFields(const clang::CXXRecordDecl *d) {
     }
   } else if (d->isDynamicClass()) {
     std::string name("vtable");
-    _fields.push_back({nullptr, d, name, d->getASTContext().VoidPtrTy});
-    _nameCount[name] += 1;
+    _fields.sub(nullptr, d, name, d->getASTContext().VoidPtrTy);
   }
 
   for (const auto base : d->bases()) {
@@ -203,21 +203,25 @@ void ClassDefineJob::findNonVirtualBaseFields(const clang::CXXRecordDecl *d) {
   }
 }
 
-void ClassDefineJob::writeFields(std::vector<FieldInfo> &list, std::string indent) {
+void ClassDefineJob::writeFields(FieldInfo &list, std::string indent, std::unordered_set<std::string> *names) {
   const ASTContext &AC = _d->getASTContext();
-  std::unordered_set<std::string> names;
-  for (auto &f : list) {
+  std::unique_ptr<std::unordered_set<std::string>> mynames;
+  if (!names) {
+    mynames = std::make_unique<std::unordered_set<std::string>>();
+    names = mynames.get();
+  }
+  for (auto &f : list.subFields) {
     if (f.name.size()) {
-      if (_nameCount[f.name] > 1) {
+      if ((*list.nameCount)[f.name] > 1) {
         f.name =
             Identifier(f.parent, cfg()).c.substr(cfg()._root.size()) + cfg().c_separator + f.name;
       }
-      if (names.count(f.name)) {
+      if (names->count(f.name)) {
         int i = 2;
-        while (names.count(f.name + cfg().c_separator + std::to_string(i))) i++;
+        while (names->count(f.name + cfg().c_separator + std::to_string(i))) i++;
         f.name += cfg().c_separator + std::to_string(i);
       } else {
-        names.emplace(f.name);
+        names->emplace(f.name);
       }
     }
 
@@ -226,7 +230,7 @@ void ClassDefineJob::writeFields(std::vector<FieldInfo> &list, std::string inden
         _out.hf() << indent << "union {\n";
       else
         _out.hf() << indent << "struct {\n";
-      writeFields(f.subFields, indent + "  ");
+      writeFields(f, indent + "  ", f.name.empty() ? names : nullptr);
       _out.hf() << indent << "}";
       if (f.name.size()) _out.hf() << " " << f.name;
       _out.hf() << ";\n";

@@ -8,7 +8,7 @@ struct test {
     struct {
       int a;
       int b;
-    };
+    } a;
     struct {
       char c;
       char d;
@@ -16,17 +16,21 @@ struct test {
   };
 };
 
-struct test2 {
+struct test2a {
+  int T;
+};
+
+struct test2 : public virtual test2a {
   union {
     struct {
-      int a;
+      int S;
       int b;
     } S;
     struct {
       char c;
       char d;
     } T;
-  } U;
+  } vtable;
 };
 
 typedef struct {
