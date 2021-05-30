@@ -432,6 +432,8 @@ void JobManager::finishTemplates(clang::Sema &S) {
         for (auto *vtsd : vtd->specializations()) {
           create(vtsd, S);
         }
+      } else if (auto *vtd = dyn_cast<TypeAliasTemplateDecl>(TD)) {
+        // ignore
       } else {
         std::cerr << "Warning: template " << cfg().getCXXQualifiedName(TD) << " has unknown kind "
                   << TD->getDeclKindName() << std::endl;
