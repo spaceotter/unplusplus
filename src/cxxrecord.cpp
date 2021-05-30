@@ -19,7 +19,6 @@ bool ClassDeclareJob::accept(const type *D) { return getAnonTypedef(D) || !getNa
 ClassDeclareJob::ClassDeclareJob(ClassDeclareJob::type *D, clang::Sema &S, JobManager &jm)
     : Job<ClassDeclareJob::type>(D, S, jm) {
   _name += " (Declaration)";
-  std::cout << "Job Created: " << _name << std::endl;
   manager().declare(_d, this);
 
   auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(_d);
@@ -74,7 +73,6 @@ bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
 ClassDefineJob::ClassDefineJob(ClassDefineJob::type *D, clang::Sema &S, JobManager &jm)
     : Job<ClassDefineJob::type>(D, S, jm) {
   _name += " (Definition)";
-  std::cout << "Job Created: " << _name << std::endl;
   manager().define(D, this);
   depends(D, false);
 

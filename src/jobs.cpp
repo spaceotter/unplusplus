@@ -76,6 +76,7 @@ void JobBase::depends(clang::QualType QT, bool define) {
 }
 
 void JobBase::checkReady() {
+  std::cout << "Job Created: " << _name << std::endl;
   if (_depends.empty()) _manager._ready.push(this);
 }
 
@@ -113,7 +114,6 @@ template class unplusplus::Job<clang::EnumDecl>;
 
 TypedefJob::TypedefJob(TypedefJob::type *D, Sema &S, JobManager &manage)
     : Job<TypedefJob::type>(D, S, manage) {
-  std::cout << "Job Created: " << _name << std::endl;
   const QualType &QT = _d->getUnderlyingType();
   const Type *t = QT.getTypePtrOrNull()->getUnqualifiedDesugaredType();
   if (const auto *tt = dyn_cast<TagType>(t)) {
@@ -160,7 +160,6 @@ void TypedefJob::impl() {
 }
 
 VarJob::VarJob(VarJob::type *D, Sema &S, JobManager &jm) : Job<VarJob::type>(D, S, jm) {
-  std::cout << "Job Created: " << _name << std::endl;
   if (auto *VTD = _d->getDescribedVarTemplate()) manager().create(VTD, S);
   if (auto *VTSD = dyn_cast<VarTemplateSpecializationDecl>(_d))
     manager().create(VTSD->getTemplateInstantiationArgs().asArray(), S);

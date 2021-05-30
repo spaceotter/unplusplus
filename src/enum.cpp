@@ -9,7 +9,6 @@ using namespace unplusplus;
 using namespace clang;
 
 EnumJob::EnumJob(type *D, clang::Sema &S, JobManager &jm) : Job<EnumJob::type>(D, S, jm) {
-  std::cout << "Job Created: " << _name << std::endl;
   manager().declare(_d, this);
   manager().define(_d, this);
   depends(_d->getIntegerType(), false);

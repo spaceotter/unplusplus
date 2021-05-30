@@ -377,7 +377,7 @@ std::string IdentifierConfig::getDebugName(const clang::Decl *d) const {
   if (const auto *fd = dyn_cast_or_null<FunctionDecl>(d)) {
     std::string s;
     llvm::raw_string_ostream cxx_params(s);
-    cxx_params << getName(fd) << "(";
+    cxx_params << getCXXQualifiedName(fd) << "(";
     bool first = true;
     for (auto *p : fd->parameters()) {
       if (!first) cxx_params << ", ";
