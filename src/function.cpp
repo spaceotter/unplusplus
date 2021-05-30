@@ -121,7 +121,12 @@ void FunctionJob::impl() {
     _out.sf() << "// defined externally\n\n";
   } else {
     _out.hf() << "\n";
-    std::string fname = getName(_d);
+    std::string fname;
+    if (auto * CD = dyn_cast<CXXConversionDecl>(_d)) {
+      fname = "operator " + Identifier(CD->getConversionType(), {}, cfg()).cpp;
+    } else {
+      fname = getName(_d);
+    }
     _out.sf() << signature.c << " {\n  ";
     if (dtor) {
       _out.sf() << "delete " << cfg()._this;
