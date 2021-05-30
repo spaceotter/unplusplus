@@ -237,6 +237,9 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent, std::unord
     } else {
       Identifier fi(f.type, Identifier(f.name, cfg()), cfg());
       _out.hf() << indent << fi.c;
+      if (f.field && f.field->isBitField()) {
+        _out.hf() << " : " << f.field->getBitWidthValue(AC);
+      }
       Decl *LocD = f.field ? (Decl *)f.field : (Decl *)f.parent;
       std::string location = LocD->getLocation().printToString(AC.getSourceManager());
       _out.hf() << "; // " << location << "\n";
