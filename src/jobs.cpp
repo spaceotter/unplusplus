@@ -261,7 +261,7 @@ void JobManager::create(Decl *D, clang::Sema &S) {
     // already been created.
     if (ClassDefineJob::accept(SD, cfg(), S) && !isDefined(SD)) new ClassDefineJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<FunctionDecl>(D)) {
-    if (FunctionJob::accept(SD)) new FunctionJob(SD, S, *this);
+    if (FunctionJob::accept(SD) && !prevDeclared(SD)) new FunctionJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<VarDecl>(D)) {
     if (!SD->isTemplated() && !prevDeclared(SD)) new VarJob(SD, S, *this);
   } else if (auto *SD = dyn_cast<EnumDecl>(D)) {
