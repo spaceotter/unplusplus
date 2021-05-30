@@ -23,7 +23,7 @@ to avoid issues with system header or ABI incompatibility.
 * Namespaces and templates are collapsed according to a name-mangling system. For instance,
   `A::foo<int>` becomes `upp_A_foo_int`
 * It will try to fully instantiate template specializations that were hinted at in the supplied
-  code.
+  code, since templates normally use lazy evaluation.
 * Redundant code will not be emitted for `using` declarations.
 * Constructors will generate a function that allocates a new object.
 * Destructors will generate a function that frees an object.
@@ -32,19 +32,26 @@ to avoid issues with system header or ABI incompatibility.
 * Any passing of structs/classes by value or C++ `&` reference are changed to passing by pointer,
   for the best compatibility with FFI.
 * Returning structs/classes by value is changed to supplying a pointer argument for the output to be
-  assigned.
+  assigned into.
 * Functions declarations with arguments without a provided name are given generated ones.
 * Enumeration values are copied to the output.
 * Enumerations with a non-int type are generated as a bunch of macros.
 * Some types are considered internal to the standard C++ library. These are filtered out, and are
   referred to using a typedef if one appears later.
 * A constant extern *pointer* is emitted for global variables, which points to the variable.
-* A struct that mirrors the layout of the C++ type is emitted to allow direct access to fields.
+* A struct that mirrors the layout of the C++ type is emitted to allow direct access to
+  fields. Anonymous unions and structs used to organize fields are copied directly over to the C
+  struct.
 
 ## Limitations
 
 The project is not ready for general use yet.
 
-* Some C++ features may not be supported.
+* Some newer C++ features may not be supported.
 * Macros are not transferred.
-* The mirror structs probably aren't generated correctly for alignment.
+* The generator does not account for explicit alignment or packed structure declarations. If these
+  are present, the layout of mirror structs could be incorrect.
+* Templates are normally evaluated in a lazy fashion. This means that methods are not instantiated
+  unless they are used, which can result in hidden bugs in libraries where the template's method is
+  incompatible with some template arguments. These can be surfaced by unplusplus because it
+  explicitly uses every single member of every template specialization that it can find.

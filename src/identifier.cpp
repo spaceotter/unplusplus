@@ -181,7 +181,8 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
     if (const auto *D = dyn_cast<Decl>(DC)) {
       AccessSpecifier a = D->getAccess();
       if (a == AccessSpecifier::AS_private) throw mangling_error("Private parent decl", d, *this);
-      if (a == AccessSpecifier::AS_protected) throw mangling_error("Protected parent decl", d, *this);
+      if (a == AccessSpecifier::AS_protected)
+        throw mangling_error("Protected parent decl", d, *this);
     }
     if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
       os << Spec->getName().str();

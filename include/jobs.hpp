@@ -8,11 +8,11 @@
 #include <clang/AST/Decl.h>
 #include <clang/Sema/Sema.h>
 
+#include <list>
 #include <memory>
 #include <queue>
-#include <list>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "outputs.hpp"
@@ -28,8 +28,8 @@ class JobBase {
   JobManager &_manager;
   // these must be *ordered*, or the declarations are not processed in a deterministic order!
   // This is very important because identical symbols are renamed depending on order.
-  std::list<JobBase *> _depends; // Dependencies of this job (minus those that are done)
-  std::list<JobBase *> _dependent; // Jobs that depend on this job
+  std::list<JobBase *> _depends;    // Dependencies of this job (minus those that are done)
+  std::list<JobBase *> _dependent;  // Jobs that depend on this job
   bool _done = false;
 
  protected:

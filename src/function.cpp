@@ -122,7 +122,7 @@ void FunctionJob::impl() {
   } else {
     _out.hf() << "\n";
     std::string fname;
-    if (auto * CD = dyn_cast<CXXConversionDecl>(_d)) {
+    if (auto *CD = dyn_cast<CXXConversionDecl>(_d)) {
       fname = "operator " + Identifier(CD->getConversionType(), {}, cfg()).cpp;
     } else {
       fname = getName(_d);

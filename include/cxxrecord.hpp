@@ -26,7 +26,8 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
     bool isUnion;
     std::shared_ptr<std::unordered_map<std::string, unsigned>> nameCount;
     std::vector<FieldInfo> subFields;
-    FieldInfo() : name("root"), nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
+    FieldInfo()
+        : name("root"), nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
     FieldInfo(const clang::FieldDecl *F, const clang::CXXRecordDecl *P, std::string N,
               clang::QualType T, bool isUnion = false)
         : field(F),

@@ -127,8 +127,7 @@ TypedefJob::TypedefJob(TypedefJob::type *D, Sema &S, JobManager &manage)
       // refer to it. Substitute the name of this typedef instead, and forward declare the missing
       // type.
       _replacesFiltered = manager().renameFiltered(td, _d);
-      if (_replacesFiltered)
-        manager().declare(td, this);
+      if (_replacesFiltered) manager().declare(td, this);
       if (td->isUnion())
         _keyword = "union";
       else if (td->isEnum())
@@ -240,8 +239,7 @@ void JobManager::create(Decl *D, clang::Sema &S) {
     if (isa<TypeDecl>(D)) {
       declare(D, nullptr);
       if (auto *TD = dyn_cast<TagDecl>(D)) {
-        if (TD->isCompleteDefinition() || TD->isBeingDefined())
-          define(D, nullptr);
+        if (TD->isCompleteDefinition() || TD->isBeingDefined()) define(D, nullptr);
       }
     }
     return;

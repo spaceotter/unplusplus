@@ -137,8 +137,7 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, FieldInfo &list) {
           !Identifier::ids.count(rd) && dc == d) {
         list.sub(f, d, name, QT, rd->isUnion());
         // the scope is shared
-        if (name.empty())
-          list.subFields.back().nameCount = list.nameCount;
+        if (name.empty()) list.subFields.back().nameCount = list.nameCount;
         addFields(rd, list.subFields.back());
         continue;
       }
@@ -203,7 +202,8 @@ void ClassDefineJob::findNonVirtualBaseFields(const clang::CXXRecordDecl *d) {
   }
 }
 
-void ClassDefineJob::writeFields(FieldInfo &list, std::string indent, std::unordered_set<std::string> *names) {
+void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
+                                 std::unordered_set<std::string> *names) {
   const ASTContext &AC = _d->getASTContext();
   std::unique_ptr<std::unordered_set<std::string>> mynames;
   if (!names) {
