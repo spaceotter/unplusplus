@@ -84,7 +84,12 @@ void JobBase::run() {
     // std::cerr << "Error: " << _name << " ran again" << std::endl;
     return;
   }
-  impl();
+  try {
+    impl();
+  } catch (const mangling_error &err) {
+    std::cerr << "Job Failed: " << _name << " from " << err.what() << std::endl;
+    std::exit(1);
+  }
   _done = true;
   std::cout << "Job Done: " << _name << std::endl;
   for (auto *d : _dependent) {

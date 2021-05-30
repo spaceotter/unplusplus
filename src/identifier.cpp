@@ -147,13 +147,13 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
   }
 
   if (filterOut(d)) {
-    throw mangling_error("Filtered Out " + getCXXQualifiedName(d));
+    throw mangling_error("Filtered Out " + getCXXQualifiedName(d), d, *this);
   }
 
   std::stringstream os;
   const DeclContext *Ctx = d->getDeclContext();
   if (Ctx->isFunctionOrMethod()) {
-    throw mangling_error("Identifier in function or method");
+    throw mangling_error("Identifier in function or method", d, *this);
   }
   using ContextsTy = SmallVector<const DeclContext *, 8>;
   ContextsTy Contexts;
@@ -180,8 +180,8 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
     if (!first && !(isa<EnumDecl>(DC) && !dyn_cast<EnumDecl>(DC)->isScoped())) os << c_separator;
     if (const auto *D = dyn_cast<Decl>(DC)) {
       AccessSpecifier a = D->getAccess();
-      if (a == AccessSpecifier::AS_private) throw mangling_error("Private parent decl");
-      if (a == AccessSpecifier::AS_protected) throw mangling_error("Protected parent decl");
+      if (a == AccessSpecifier::AS_private) throw mangling_error("Private parent decl", d, *this);
+      if (a == AccessSpecifier::AS_protected) throw mangling_error("Protected parent decl", d, *this);
     }
     if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
       os << Spec->getName().str();
@@ -190,7 +190,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
       printCTemplateArgs(os, TemplateArgs.asArray());
     } else if (const auto *ND = dyn_cast<NamespaceDecl>(DC)) {
       if (ND->isAnonymousNamespace()) {
-        throw mangling_error("Anonymous namespace");
+        throw mangling_error("Anonymous namespace", d, *this);
       } else
         os << ND->getDeclName().getAsString();
     } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
@@ -198,12 +198,12 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
         if (const auto *TD = getAnonTypedef(RD)) {
           os << TD->getDeclName().getAsString();
         } else {
-          throw mangling_error("Anonymous struct or class");
+          throw mangling_error("Anonymous struct or class", d, *this);
         }
       } else
         os << RD->getDeclName().getAsString();
     } else if (const auto *FD = dyn_cast<FunctionDecl>(DC)) {
-      throw mangling_error("Decl inside a fuction");
+      throw mangling_error("Decl inside a fuction", d, *this);
     } else if (const auto *ED = dyn_cast<EnumDecl>(DC)) {
       // C++ [dcl.enum]p10: Each enum-name and each unscoped
       // enumerator is declared in the scope that immediately contains
@@ -224,7 +224,7 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
     std::string name = getName(d);
     if (name.find("operator") == 0) name = sanitize(name);
     if (name.empty()) {
-      throw mangling_error("Anonymous Decl");
+      throw mangling_error("Anonymous Decl", d, *this);
     } else {
       os << name;
     }
@@ -243,7 +243,17 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
   return os.str();
 }
 
-std::string IdentifierConfig::getCName(const Type *t, const std::string &name, bool root) const {
+std::string IdentifierConfig::getCName(const QualType &qt, std::string name, bool root) const {
+  const Type *t = qt.getTypePtrOrNull();
+  if (t == nullptr) {
+    throw mangling_error("Type is null", qt, *this);
+  }
+  t = t->getUnqualifiedDesugaredType();
+
+  if (qt.isLocalConstQualified()) {
+    name = "const " + name;
+  }
+
   std::string c;
   std::string sname = name.empty() ? "" : " " + name;
 
@@ -279,23 +289,8 @@ std::string IdentifierConfig::getCName(const Type *t, const std::string &name, b
   } else if (const auto *pt = dyn_cast<InjectedClassNameType>(t)) {
     c = getCName(pt->getDecl(), root) + sname;
   } else {
-    throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName());
+    throw mangling_error(std::string("Unknown type kind ") + t->getTypeClassName(), qt, *this);
   }
-  return c;
-}
-
-std::string IdentifierConfig::getCName(const QualType &qt, std::string name, bool root) const {
-  const Type *t = qt.getTypePtrOrNull();
-  if (t == nullptr) {
-    throw mangling_error("Type is null");
-  }
-  t = t->getUnqualifiedDesugaredType();
-
-  if (qt.isLocalConstQualified()) {
-    name = "const " + name;
-  }
-
-  std::string c = getCName(t, name, root);
 
   return c;
 }
@@ -305,7 +300,7 @@ std::unordered_set<std::string> Identifier::dups;
 
 Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   if (d == nullptr) {
-    throw mangling_error("Null Decl");
+    throw mangling_error("Null Decl", d, cfg);
   }
 
   const NamedDecl *p = d;
@@ -330,8 +325,7 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   if (d->getDeclContext()->isExternCContext()) {
     c = d->getDeclName().getAsString();
     if (dups.count(c)) {
-      throw mangling_error("An automatically generated symbol conflicts with a C symbol `" + c +
-                           "`");
+      throw mangling_error("Generated symbol conflicts with a C symbol", d, cfg);
     }
   } else {
     c = cfg.getCName(d);
@@ -398,6 +392,15 @@ std::string IdentifierConfig::getDebugName(const clang::Decl *d) const {
   } else {
     name += getCXXQualifiedName(d);
   }
+  return name;
+}
+
+std::string IdentifierConfig::getDebugName(const clang::QualType &T) const {
+  std::string name = T->getTypeClassName();
+  llvm::raw_string_ostream ss(name);
+  ss << " ";
+  T.print(ss, PP);
+  ss.flush();
   return name;
 }
 

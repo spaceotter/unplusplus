@@ -14,10 +14,6 @@
 #include <unordered_set>
 
 namespace unplusplus {
-struct mangling_error : public std::runtime_error {
-  mangling_error(const std::string &what_arg) : std::runtime_error(what_arg) {}
-};
-
 // This class stores the settings for C name generation from C++ things.
 struct IdentifierConfig {
   IdentifierConfig(const clang::ASTContext &astc) : astc(astc), PP(astc.getLangOpts()) {
@@ -43,7 +39,6 @@ struct IdentifierConfig {
   // get a mangled name to use in C to refer to C++ clang declarations
   std::string getCName(const clang::NamedDecl *d, bool root = true) const;
   // get a type specifier that uses the mangled C names, and wraps the given name
-  std::string getCName(const clang::Type *t, const std::string &name, bool root = true) const;
   std::string getCName(const clang::QualType &qt, std::string name, bool root = true) const;
 
   // Get the decl name, with qualifier and template arguments
@@ -51,6 +46,7 @@ struct IdentifierConfig {
 
   // Get an informative name, functions will have return & arguments
   std::string getDebugName(const clang::Decl *d) const;
+  std::string getDebugName(const clang::QualType &d) const;
 
   // Prints an alternate mangling for template arguments
   void printCTemplateArgs(std::ostream &os,
@@ -59,6 +55,16 @@ struct IdentifierConfig {
   void printCTemplateArg(std::ostream &os, clang::QualType QT) const;
   // Prints an alternate mangling for the template argument
   void printCTemplateArg(std::ostream &os, const clang::TemplateArgument &Arg) const;
+};
+
+struct mangling_error : public std::runtime_error {
+  mangling_error(const std::string &what_arg, const clang::Decl *D, const IdentifierConfig &cfg)
+      : std::runtime_error(
+            what_arg + " " + cfg.getDebugName(D) + " at " +
+            (D ? D->getLocation().printToString(D->getASTContext().getSourceManager())
+               : "<null>")) {}
+  mangling_error(const std::string &what_arg, const clang::QualType &T, const IdentifierConfig &cfg)
+      : std::runtime_error(what_arg + " " + cfg.getDebugName(T)) {}
 };
 
 // A convenience class to keep the C and C++ names of something together.
