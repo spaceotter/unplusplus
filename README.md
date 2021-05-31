@@ -36,12 +36,26 @@ to avoid issues with system header or ABI incompatibility.
 * Functions declarations with arguments without a provided name are given generated ones.
 * Enumeration values are copied to the output.
 * Enumerations with a non-int type are generated as a bunch of macros.
-* Some types are considered internal to the standard C++ library. These are filtered out, and are
-  referred to using a typedef if one appears later.
 * A constant extern *pointer* is emitted for global variables, which points to the variable.
 * A struct that mirrors the layout of the C++ type is emitted to allow direct access to
   fields. Anonymous unions and structs used to organize fields are copied directly over to the C
   struct.
+
+## Filtering Declarations
+
+If you need to leave out some declarations, you can supply its fully qualified name with the `-e`
+option, or add the fully qualified name as a line in a text file and supply the file with the
+`--excludes-file` option. Lines that are empty or start with `#` are ignored.
+
+Declarations that are excluded in this way should not appear in the generated code, and any
+declarations using them, such as a function with an excluded type as a parameter, are also omitted.
+
+If an excluded declaration is renamed with a typedef, that is not itself also excluded, then the
+type will be referred to by later declarations using the typedef name instead.
+
+Some declarations are always filtered out in this way. These are implementation-specific parts that
+are internal to the standard C++ library, such as the true name of iterators. The container
+template's typedefs for the iterator get used instead.
 
 ## Limitations
 

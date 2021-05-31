@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "filter.hpp"
 #include "outputs.hpp"
 
 namespace unplusplus {
@@ -102,6 +103,8 @@ class VarJob : public Job<clang::VarDecl> {
 
 class JobManager {
   Outputs &_out;
+  IdentifierConfig _cfg;
+  DeclFilter _filter;
   std::unordered_set<clang::Decl *> _decls;
   std::unordered_set<clang::Decl *> _renamed;
   std::vector<std::unique_ptr<JobBase>> _jobs;
@@ -109,14 +112,15 @@ class JobManager {
   std::unordered_map<clang::Decl *, JobBase *> _definitions;
   std::queue<clang::TemplateDecl *> _templates;
   std::queue<JobBase *> _ready;
-  IdentifierConfig _cfg;
 
  public:
-  JobManager(Outputs &out, const clang::ASTContext &_astc) : _out(out), _cfg(_astc) {}
+  JobManager(Outputs &out, const clang::ASTContext &_astc, DeclFilterConfig &FC)
+      : _out(out), _cfg(_astc), _filter(_cfg.PP, FC) {}
   ~JobManager();
 
   Outputs &out() { return _out; }
   IdentifierConfig &cfg() { return _cfg; }
+  DeclFilter &filter() { return _filter; }
   void flush();
 
   void create(clang::QualType QT, clang::Sema &S);

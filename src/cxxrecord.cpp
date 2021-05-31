@@ -153,7 +153,7 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, FieldInfo &list) {
       }
     }
 
-    sanitizeType(QT, AC);
+    manager().filter().sanitizeType(QT, AC);
     list.sub(f, d, name, QT);
     depends(QT, true);
   }

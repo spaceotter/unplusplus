@@ -11,14 +11,16 @@
 
 #include <memory>
 
+#include "filter.hpp"
 #include "outputs.hpp"
 
 namespace unplusplus {
-class IndexActionFactory : public clang::tooling::FrontendActionFactory {
+class UppActionFactory : public clang::tooling::FrontendActionFactory {
   Outputs &_out;
+  DeclFilterConfig &_fc;
 
  public:
-  IndexActionFactory(Outputs &out) : _out(out) {}
+  UppActionFactory(Outputs &out, DeclFilterConfig &FC) : _out(out), _fc(FC) {}
 
   std::unique_ptr<clang::FrontendAction> create() override;
 };

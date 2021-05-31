@@ -25,6 +25,12 @@ using std::filesystem::path;
 static cl::OptionCategory UppCategory("unplusplus options");
 static cl::opt<std::string> OutStem("o", cl::desc("Output files base name"), cl::Optional,
                                     cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
+static cl::opt<std::string> ExcludesFile("excludes-file",
+                                         cl::desc("File of declarations to exclude"), cl::Optional,
+                                         cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
+static cl::list<std::string> ExcludeDecl("e", cl::desc("Exclude the fully qualified declaration"),
+                                         cl::ZeroOrMore, cl::cat(UppCategory),
+                                         cl::sub(*cl::AllSubCommands));
 
 int main(int argc, const char **argv) {
   std::vector<const char *> args(argv, argv + argc);
@@ -44,10 +50,15 @@ int main(int argc, const char **argv) {
   } else {
     stem = path(OutStem.getValue());
   }
+  DeclFilterConfig FC;
+  if (!ExcludesFile.empty()) {
+    FC.exclusion_file = path(ExcludesFile.getValue());
+  }
+  FC.exclude_decls = ExcludeDecl;
   std::cout << "Writing library to: " << stem.string() << ".*" << std::endl;
   FileOutputs fout(stem, sources);
   SubOutputs temp(fout);
-  IndexActionFactory Factory(temp);
+  UppActionFactory Factory(temp, FC);
   int ret = Tool.run(&Factory);
   fout.finalize();
   return ret;

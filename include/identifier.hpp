@@ -42,7 +42,7 @@ struct IdentifierConfig {
   std::string getCName(const clang::QualType &qt, std::string name, bool root = true) const;
 
   // Get the decl name, with qualifier and template arguments
-  std::string getCXXQualifiedName(const clang::Decl *d) const;
+  std::string getCXXQualifiedName(const clang::Decl *D) const;
 
   // Get an informative name, functions will have return & arguments
   std::string getDebugName(const clang::Decl *d) const;
@@ -87,7 +87,10 @@ struct Identifier {
 };
 
 // Get the decl name, or overridden print operator
-std::string getName(const clang::Decl *d);
+std::string getName(const clang::Decl *D);
+
+// Get the decl name, with qualifier and template arguments
+std::string getCXXQualifiedName(const clang::PrintingPolicy &PP, const clang::Decl *d);
 
 // If the NamedDecl is an anonymous struct or enum, get the typedef that is giving it a name.
 const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);

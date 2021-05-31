@@ -146,10 +146,6 @@ std::string IdentifierConfig::getCName(const clang::NamedDecl *d, bool root) con
     return root ? Identifier::ids.at(d).c : Identifier::ids.at(d).c.substr(_root.size());
   }
 
-  if (filterOut(d)) {
-    throw mangling_error("Filtered Out " + getCXXQualifiedName(d), d, *this);
-  }
-
   std::stringstream os;
   const DeclContext *Ctx = d->getDeclContext();
   if (Ctx->isFunctionOrMethod()) {
@@ -405,7 +401,11 @@ std::string IdentifierConfig::getDebugName(const clang::QualType &T) const {
   return name;
 }
 
-std::string IdentifierConfig::getCXXQualifiedName(const clang::Decl *d) const {
+std::string IdentifierConfig::getCXXQualifiedName(const clang::Decl *D) const {
+  return unplusplus::getCXXQualifiedName(PP, D);
+}
+
+std::string unplusplus::getCXXQualifiedName(const clang::PrintingPolicy &PP, const clang::Decl *d) {
   if (!d) return "<null>";
   if (const auto *nd = dyn_cast<NamedDecl>(d)) {
     std::string s;

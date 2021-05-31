@@ -37,10 +37,11 @@ class UppASTConsumer : public ASTConsumer {
 
 class UppAction : public ASTFrontendAction {
   Outputs &_out;
+  DeclFilterConfig &_fc;
   std::unique_ptr<JobManager> _jm;
 
  public:
-  UppAction(Outputs &out) : _out(out) {}
+  UppAction(Outputs &out, DeclFilterConfig &FC) : _out(out), _fc(FC) {}
   virtual void ExecuteAction() override {
     ASTFrontendAction::ExecuteAction();
     CompilerInstance &CI = getCompilerInstance();
@@ -49,11 +50,11 @@ class UppAction : public ASTFrontendAction {
 
  protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef InFile) override {
-    _jm = std::make_unique<JobManager>(_out, CI.getASTContext());
+    _jm = std::make_unique<JobManager>(_out, CI.getASTContext(), _fc);
     return std::make_unique<UppASTConsumer>(*_jm, getCompilerInstance());
   }
 };
 
-std::unique_ptr<clang::FrontendAction> IndexActionFactory::create() {
-  return std::make_unique<UppAction>(_out);
+std::unique_ptr<clang::FrontendAction> UppActionFactory::create() {
+  return std::make_unique<UppAction>(_out, _fc);
 }

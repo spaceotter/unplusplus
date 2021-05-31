@@ -245,7 +245,7 @@ void JobManager::create(Decl *D, clang::Sema &S) {
     return;
   }
 
-  if (filterOut(D)) return;
+  if (_filter.filterOut(D)) return;
   if (D->isTemplated()) create(D->getDescribedTemplate(), S);
 
   if (auto *SD = dyn_cast<TypedefDecl>(D)) {
@@ -396,7 +396,7 @@ bool JobManager::prevDeclared(clang::Decl *D) {
 }
 
 bool JobManager::renameFiltered(NamedDecl *D, NamedDecl *New) {
-  if (!_renamed.count(D) && filterOut(D)) {
+  if (!_renamed.count(D) && _filter.filterOut(D)) {
     // this typedef renames a filtered-out class. Its decl was dropped earlier, so we can't refer to
     // it. Substitute the name of this typedef instead, and forward declare the missing type.
     try {

@@ -7,7 +7,7 @@
 
 #include <clang/AST/DeclTemplate.h>
 
-#include <unordered_map>
+#include <fstream>
 
 #include "identifier.hpp"
 
@@ -117,19 +117,33 @@ bool unplusplus::traverse(const Decl *D, std::function<bool(const clang::Decl *)
   }
 }
 
-static std::unordered_map<const Decl *, bool> filteredOut;
-
-bool unplusplus::filterOut(const clang::Decl *D) {
-  if (!filteredOut.count(D)) {
-    filteredOut[D] = traverse(D, [](const clang::Decl *D) {
-      return (isInaccessibleP(D) || isLibraryInternalP(D)) &&
-             !Identifier::ids.count(dyn_cast_or_null<NamedDecl>(D));
-    });
+DeclFilter::DeclFilter(const clang::PrintingPolicy &PP, DeclFilterConfig &FC) : _conf(FC), _pp(PP) {
+  if (!_conf.exclusion_file.empty()) {
+    std::ifstream ifs(_conf.exclusion_file);
+    std::string line;
+    while (std::getline(ifs, line)) {
+      if (line.size() && line[0] != '#') _excluded.emplace(line);
+    }
   }
-  return filteredOut[D];
+  for (auto &d : FC.exclude_decls) {
+    _excluded.emplace(d);
+  }
 }
 
-void unplusplus::sanitizeType(QualType &QT, const ASTContext &AC) {
+bool DeclFilter::predicate(const clang::Decl *D) {
+  std::string name = getCXXQualifiedName(_pp, D);
+  return (isInaccessibleP(D) || isLibraryInternalP(D) || _excluded.count(name)) &&
+         !Identifier::ids.count(dyn_cast_or_null<NamedDecl>(D));
+}
+
+bool DeclFilter::filterOut(const clang::Decl *D) {
+  if (!_cache.count(D)) {
+    _cache[D] = traverse(D, std::bind(&DeclFilter::predicate, this, std::placeholders::_1));
+  }
+  return _cache[D];
+}
+
+void DeclFilter::sanitizeType(QualType &QT, const ASTContext &AC) {
   if (QT->isRecordType()) {
     if (!QT->getAsRecordDecl()->isCompleteDefinition() || filterOut(QT->getAsRecordDecl())) {
       uint64_t size = AC.getTypeSizeInChars(QT).getQuantity();
