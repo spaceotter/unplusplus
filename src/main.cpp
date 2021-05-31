@@ -31,6 +31,9 @@ static cl::opt<std::string> ExcludesFile("excludes-file",
 static cl::list<std::string> ExcludeDecl("e", cl::desc("Exclude the fully qualified declaration"),
                                          cl::ZeroOrMore, cl::cat(UppCategory),
                                          cl::sub(*cl::AllSubCommands));
+static cl::opt<bool> NoDeprecated("no-deprecated",
+                                  cl::desc("Exclude deprecated or unavailable declarations"),
+                                  cl::Optional, cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
 
 int main(int argc, const char **argv) {
   std::vector<const char *> args(argv, argv + argc);
@@ -55,6 +58,7 @@ int main(int argc, const char **argv) {
     FC.exclusion_file = path(ExcludesFile.getValue());
   }
   FC.exclude_decls = ExcludeDecl;
+  FC.no_deprecated = NoDeprecated;
   std::cout << "Writing library to: " << stem.string() << ".*" << std::endl;
   FileOutputs fout(stem, sources);
   SubOutputs temp(fout);

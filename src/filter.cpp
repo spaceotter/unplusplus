@@ -132,7 +132,10 @@ DeclFilter::DeclFilter(const clang::PrintingPolicy &PP, DeclFilterConfig &FC) : 
 
 bool DeclFilter::predicate(const clang::Decl *D) {
   std::string name = getCXXQualifiedName(_pp, D);
-  return (isInaccessibleP(D) || isLibraryInternalP(D) || _excluded.count(name)) &&
+  AvailabilityResult ar = D->getAvailability();
+  return (isInaccessibleP(D) || isLibraryInternalP(D) || _excluded.count(name) ||
+          (_conf.no_deprecated && ar == AR_Deprecated) || ar == AR_Unavailable ||
+          ar == AR_NotYetIntroduced) &&
          !Identifier::ids.count(dyn_cast_or_null<NamedDecl>(D));
 }
 

@@ -57,6 +57,9 @@ Some declarations are always filtered out in this way. These are implementation-
 are internal to the standard C++ library, such as the true name of iterators. The container
 template's typedefs for the iterator get used instead.
 
+You can also filter out "deprecated" declarations (created with `__attribute__((deprecated))` for
+instance) with the option `--no-deprecated`.
+
 ## Limitations
 
 The project is not ready for general use yet.
