@@ -25,7 +25,7 @@ class UppASTConsumer : public ASTConsumer {
   bool HandleTopLevelDecl(DeclGroupRef DG) override {
     for (auto d : DG) {
       _jm.create(d, _CI.getSema());
-      _jm.flush();
+      _jm.flush(_CI.getSema());
     }
     return true;
   }

@@ -16,8 +16,8 @@ FunctionJob::FunctionJob(FunctionJob::type *D, clang::Sema &S, JobManager &jm)
     : Job<FunctionJob::type>(D, S, jm) {
   manager().declare(_d, this);
   if (auto *l = _d->getTemplateSpecializationArgs()) {
-    manager().create(_d->getDescribedFunctionTemplate(), S);
-    manager().create(l->asArray(), S);
+    manager().lazyCreate(_d->getDescribedFunctionTemplate(), S);
+    manager().lazyCreate(l->asArray(), S);
   }
 
   _returnType = _d->getReturnType();

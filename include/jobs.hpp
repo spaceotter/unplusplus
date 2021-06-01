@@ -112,6 +112,7 @@ class JobManager {
   std::unordered_map<clang::Decl *, JobBase *> _definitions;
   std::queue<clang::TemplateDecl *> _templates;
   std::queue<JobBase *> _ready;
+  std::queue<clang::Decl *> _lazy;
 
  public:
   JobManager(Outputs &out, const clang::ASTContext &_astc, DeclFilterConfig &FC)
@@ -121,11 +122,24 @@ class JobManager {
   Outputs &out() { return _out; }
   IdentifierConfig &cfg() { return _cfg; }
   DeclFilter &filter() { return _filter; }
-  void flush();
+  void flush(clang::Sema &S);
 
-  void create(clang::QualType QT, clang::Sema &S);
+  // Apply the operator to the declarations nested in the type
+  void traverse(clang::QualType QT, std::function<void(clang::Decl *)> OP);
+  // Apply the operator to the declarations nested in the template arguments
+  void traverse(const llvm::ArrayRef<clang::TemplateArgument> &Args,
+                std::function<void(clang::Decl *)> OP);
+
+  // Create jobs immediately for the declaration, so that a dependency can be created on them.
   void create(clang::Decl *D, clang::Sema &S);
+  void create(clang::QualType QT, clang::Sema &S);
   void create(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S);
+
+  // Lets the manager know the declaration exists, but doesn't create the jobs immediately for use
+  // as a dependency.
+  void lazyCreate(clang::Decl *D, clang::Sema &S);
+  void lazyCreate(clang::QualType QT, clang::Sema &S);
+  void lazyCreate(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S);
 
   void declare(clang::Decl *D, JobBase *J) { _declarations[D] = J; }
   void define(clang::Decl *D, JobBase *J) { _definitions[D] = J; }

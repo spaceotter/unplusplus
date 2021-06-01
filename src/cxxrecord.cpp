@@ -23,8 +23,8 @@ ClassDeclareJob::ClassDeclareJob(ClassDeclareJob::type *D, clang::Sema &S, JobMa
 
   auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(_d);
   if (CTSD) {
-    manager().create(CTSD->getSpecializedTemplate(), S);
-    manager().create(CTSD->getTemplateArgs().asArray(), S);
+    manager().lazyCreate(CTSD->getSpecializedTemplate(), S);
+    manager().lazyCreate(CTSD->getTemplateArgs().asArray(), S);
   }
 
   checkReady();
@@ -52,7 +52,7 @@ bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
   auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(D);
   // If an explicit specialiation already appeared, it may be that it was put there to create a
   // hidden definition.
-  if (!D->hasDefinition() && CTSD &&
+  if (!D->isCompleteDefinition() && CTSD &&
       CTSD->getTemplateSpecializationKind() != TSK_ExplicitSpecialization &&
       CTSD->getSpecializedTemplate()->getTemplatedDecl()->isCompleteDefinition()) {
     // clang is "lazy" and doesn't add any members that weren't used. We can force them to be
@@ -73,8 +73,8 @@ bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
 ClassDefineJob::ClassDefineJob(ClassDefineJob::type *D, clang::Sema &S, JobManager &jm)
     : Job<ClassDefineJob::type>(D, S, jm) {
   _name += " (Definition)";
-  manager().define(D, this);
-  depends(D, false);
+  manager().define(_d, this);
+  depends(_d, false);
 
   _s.ForceDeclarationOfImplicitMembers(_d);
 

@@ -126,7 +126,12 @@ TypedefJob::TypedefJob(TypedefJob::type *D, Sema &S, JobManager &manage)
       // refer to it. Substitute the name of this typedef instead, and forward declare the missing
       // type.
       _replacesFiltered = manager().renameFiltered(td, _d);
-      if (_replacesFiltered) manager().declare(td, this);
+
+      if (_replacesFiltered)
+        manager().declare(td, this);
+      else
+        depends(td, false);
+
       if (td->isUnion())
         _keyword = "union";
       else if (td->isEnum())
@@ -158,9 +163,9 @@ void TypedefJob::impl() {
 }
 
 VarJob::VarJob(VarJob::type *D, Sema &S, JobManager &jm) : Job<VarJob::type>(D, S, jm) {
-  if (auto *VTD = _d->getDescribedVarTemplate()) manager().create(VTD, S);
+  if (auto *VTD = _d->getDescribedVarTemplate()) manager().lazyCreate(VTD, S);
   if (auto *VTSD = dyn_cast<VarTemplateSpecializationDecl>(_d))
-    manager().create(VTSD->getTemplateInstantiationArgs().asArray(), S);
+    manager().lazyCreate(VTSD->getTemplateInstantiationArgs().asArray(), S);
 
   _ptr = _d->getASTContext().getPointerType(_d->getType());
   _ptr.addConst();
@@ -179,7 +184,11 @@ void VarJob::impl() {
   _out.sf() << vi.c << " = &(" << i.cpp << ");\n\n";
 }
 
-void JobManager::flush() {
+void JobManager::flush(Sema &S) {
+  while (_lazy.size()) {
+    create(_lazy.front(), S);
+    _lazy.pop();
+  }
   while (_ready.size()) {
     _ready.front()->run();
     _ready.pop();
@@ -197,27 +206,57 @@ JobManager::~JobManager() {
   }
 }
 
-void JobManager::create(QualType QT, clang::Sema &S) {
+void JobManager::traverse(clang::QualType QT, std::function<void(clang::Decl *)> OP) {
   const Type *t = QT.getTypePtrOrNull()->getUnqualifiedDesugaredType();
   if (t == nullptr) {
     return;
   } else if (const auto *tt = dyn_cast<TagType>(t)) {
-    create(tt->getDecl(), S);
+    OP(tt->getDecl());
   } else if (isa<PointerType>(t) || isa<ReferenceType>(t)) {
-    create(t->getPointeeType(), S);
+    traverse(t->getPointeeType(), OP);
   } else if (const auto *at = dyn_cast<ConstantArrayType>(t)) {
-    create(at->getElementType(), S);
+    traverse(at->getElementType(), OP);
   } else if (const auto *pt = dyn_cast<InjectedClassNameType>(t)) {
-    create(pt->getDecl(), S);
+    OP(pt->getDecl());
   } else if (const auto *pt = dyn_cast<BuiltinType>(t)) {
     ;  // No job
   } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
-    create(pt->getReturnType(), S);
+    traverse(pt->getReturnType(), OP);
     for (size_t i = 0; i < pt->getNumParams(); i++) {
-      create(pt->getParamType(i), S);
+      traverse(pt->getParamType(i), OP);
     }
   } else {
-    std::cerr << "Don't know how to create job for type " << t->getTypeClassName() << std::endl;
+    std::cerr << "Warning: Don't know how to traverse type " << t->getTypeClassName() << std::endl;
+  }
+}
+
+void JobManager::traverse(const llvm::ArrayRef<clang::TemplateArgument> &Args,
+                          std::function<void(clang::Decl *)> OP) {
+  for (const auto &Arg : Args) {
+    switch (Arg.getKind()) {
+      case TemplateArgument::Type:
+        traverse(Arg.getAsType(), OP);
+        break;
+      case TemplateArgument::Declaration:
+        OP(Arg.getAsDecl());
+        break;
+      case TemplateArgument::Pack:
+        traverse(Arg.pack_elements(), OP);
+        break;
+      case TemplateArgument::Template:
+        OP(Arg.getAsTemplate().getAsTemplateDecl());
+        break;
+      case TemplateArgument::Null:
+      case TemplateArgument::NullPtr:
+      case TemplateArgument::Integral:
+        break;  // Ignore
+      case TemplateArgument::TemplateExpansion:
+        std::cerr << "Warning: Can't traverse template expansion" << std::endl;
+        break;
+      case TemplateArgument::Expression:
+        std::cerr << "Warning: Can't traverse expression" << std::endl;
+        break;
+    }
   }
 }
 
@@ -337,33 +376,24 @@ void JobManager::create(Decl *D, clang::Sema &S) {
   }
 }
 
+void JobManager::create(QualType QT, clang::Sema &S) {
+  traverse(QT, [&](Decl *D) { create(D, S); });
+}
+
 void JobManager::create(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S) {
-  for (const auto &Arg : Args) {
-    switch (Arg.getKind()) {
-      case TemplateArgument::Type:
-        create(Arg.getAsType(), S);
-        break;
-      case TemplateArgument::Declaration:
-        create(Arg.getAsDecl(), S);
-        break;
-      case TemplateArgument::Pack:
-        create(Arg.pack_elements(), S);
-        break;
-      case TemplateArgument::Template:
-        create(Arg.getAsTemplate().getAsTemplateDecl(), S);
-        break;
-      case TemplateArgument::Null:
-      case TemplateArgument::NullPtr:
-      case TemplateArgument::Integral:
-        break;  // Ignore
-      case TemplateArgument::TemplateExpansion:
-        std::cerr << "Warning: can't forward template expansion" << std::endl;
-        break;
-      case TemplateArgument::Expression:
-        std::cerr << "Warning: can't forward expression" << std::endl;
-        break;
-    }
-  }
+  traverse(Args, [&](Decl *D) { create(D, S); });
+}
+
+void JobManager::lazyCreate(clang::Decl *D, clang::Sema &S) {
+  if (D && !_decls.count(D)) _lazy.push(D);
+}
+
+void JobManager::lazyCreate(clang::QualType QT, clang::Sema &S) {
+  traverse(QT, [&](Decl *D) { lazyCreate(D, S); });
+}
+
+void JobManager::lazyCreate(const llvm::ArrayRef<clang::TemplateArgument> &Args, clang::Sema &S) {
+  traverse(Args, [&](Decl *D) { lazyCreate(D, S); });
 }
 
 bool JobManager::isDefined(clang::Decl *D) {
@@ -430,6 +460,6 @@ void JobManager::finishTemplates(clang::Sema &S) {
       }
       _templates.pop();
     }
-    flush();
+    flush(S);
   }
 }
