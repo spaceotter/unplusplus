@@ -47,6 +47,8 @@ FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sourc
   _sf << " * This source file was generated automatically by unplusplus.\n";
   _sf << " */\n";
   _sf << "#include \"" << (std::string)_outheader << "\"\n\n";
+
+  _exclude_headers.emplace("bits/mathcalls.h");
 }
 
 FileOutputs::~FileOutputs() {
@@ -54,6 +56,15 @@ FileOutputs::~FileOutputs() {
   _hf << "} // extern \"C\"\n";
   _hf << "#endif // __cplusplus\n";
   _hf << "#endif // " << _macroname << "_CIFGEN_H\n";
+}
+
+void FileOutputs::addCHeader(const std::string &path) {
+  if (_cheaders.count(path)) return;
+  bool use = true;
+  for (auto &h : _exclude_headers) {
+    if (path.size() >= h.size() && path.substr(path.size() - h.size()) == h) use = false;
+  }
+  if (use) _cheaders.emplace(path);
 }
 
 void FileOutputs::finalize() {

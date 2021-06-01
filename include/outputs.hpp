@@ -29,6 +29,7 @@ class FileOutputs : public Outputs {
   std::ofstream _sf;
   std::string _macroname;
   std::unordered_set<std::string> _cheaders;
+  std::unordered_set<std::string> _exclude_headers;
 
  public:
   FileOutputs(const std::filesystem::path &stem, const std::vector<std::string> &sources);
@@ -36,7 +37,7 @@ class FileOutputs : public Outputs {
   std::ostream &hf() override { return _hf; };
   std::ostream &sf() override { return _sf; };
   void finalize();
-  void addCHeader(const std::string &path) override { _cheaders.emplace(path); }
+  void addCHeader(const std::string &path) override;
 };
 
 class SubOutputs : public Outputs {
