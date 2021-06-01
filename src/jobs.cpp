@@ -31,8 +31,22 @@ void JobBase::depends(JobBase *other) {
 
 void JobBase::depends(clang::Decl *D, bool define) {
   _manager.create(D, _s);
-  depends(_manager._declarations.at(D));
-  if (define) depends(_manager._definitions.at(D));
+  if (_manager._declarations.count(D)) {
+    depends(_manager._declarations.at(D));
+  } else {
+    std::cerr << "Job " << _name << " depends on declaration " << cfg().getCXXQualifiedName(D)
+              << " but it does not exist." << std::endl;
+    std::exit(1);
+  }
+  if (define) {
+    if (_manager._definitions.count(D)) {
+      depends(_manager._definitions.at(D));
+    } else {
+      std::cerr << "Job " << _name << " depends on definition " << cfg().getCXXQualifiedName(D)
+                << " but it does not exist." << std::endl;
+      std::exit(1);
+    }
+  }
 }
 
 void JobBase::depends(clang::QualType QT, bool define) {
@@ -196,13 +210,19 @@ void JobManager::flush(Sema &S) {
 }
 
 JobManager::~JobManager() {
+  int incomplete = 0;
   for (auto &j : _jobs) {
     if (!j->isDone()) {
       std::cerr << "Incomplete job: " << j->name() << std::endl;
       for (auto *d : j->dependencies()) {
         std::cerr << "  -> Needs: " << d->name() << std::endl;
       }
+      incomplete++;
     }
+  }
+  if (incomplete > 0) {
+    std::cerr << "Error: " << incomplete << " jobs did not finish." << std::endl;
+    std::exit(1);
   }
 }
 
