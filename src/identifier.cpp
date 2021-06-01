@@ -9,6 +9,7 @@
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/DeclTemplate.h>
 #include <clang/AST/TemplateBase.h>
+#include <clang/Basic/SourceManager.h>
 
 #include <iostream>
 #include <sstream>
@@ -262,10 +263,11 @@ std::string IdentifierConfig::getCName(const QualType &qt, std::string name, boo
       c = btn + sname;
     }
   } else if (const auto *tt = dyn_cast<TagType>(t)) {
-    if (root)
-      c = Identifier(tt->getDecl(), *this).c + sname;
-    else
-      c = getCName(tt->getDecl(), root) + sname;
+    TagDecl *TD = tt->getDecl();
+    c = Identifier(TD, *this).c;
+    if (!root) c = c.substr(_root.size());
+    if (TD->isStruct() && getName(TD).size() && getCSystem(TD).size()) c = "struct " + c;
+    c += sname;
   } else if (const auto *pt = dyn_cast<PointerType>(t)) {
     c = getCName(pt->getPointeeType(), "*" + name);
   } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
@@ -431,4 +433,16 @@ const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
     }
   }
   return nullptr;
+}
+
+std::string unplusplus::getCSystem(clang::Decl *D) {
+  SourceManager &SM = D->getASTContext().getSourceManager();
+  FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
+  bool Invalid = false;
+  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
+  SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
+  if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem)
+    return SEntry.getFile().getName().str();
+  else
+    return "";
 }

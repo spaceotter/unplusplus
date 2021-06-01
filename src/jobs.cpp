@@ -6,7 +6,6 @@
 #include "jobs.hpp"
 
 #include <clang/AST/DeclFriend.h>
-#include <clang/Basic/SourceManager.h>
 
 #include "cxxrecord.hpp"
 #include "enum.hpp"
@@ -227,14 +226,10 @@ void JobManager::create(Decl *D, clang::Sema &S) {
   if (_decls.count(D)) return;
   _decls.emplace(D);
 
-  SourceManager &SM = D->getASTContext().getSourceManager();
-  FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
-  bool Invalid = false;
-  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
-  SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
-  // The declaration is from a C header that can just be included by the library
-  if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem) {
-    _out.addCHeader(SEntry.getFile().getName().str());
+  // Test if from a C header that can just be included by the library
+  std::string csystemh = getCSystem(D);
+  if (csystemh.size()) {
+    _out.addCHeader(csystemh);
     // Create a dummy for jobs needing this type to depend on
     if (isa<TypeDecl>(D)) {
       declare(D, nullptr);

@@ -94,4 +94,7 @@ std::string getCXXQualifiedName(const clang::PrintingPolicy &PP, const clang::De
 
 // If the NamedDecl is an anonymous struct or enum, get the typedef that is giving it a name.
 const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);
+
+// Determine if the declaration belongs to the C standard library, and return the header path
+std::string getCSystem(clang::Decl *D);
 }  // namespace unplusplus
