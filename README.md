@@ -72,3 +72,9 @@ The project is not ready for general use yet.
   unless they are used, which can result in hidden bugs in libraries where the template's method is
   incompatible with some template arguments. These can be surfaced by unplusplus because it
   explicitly uses every single member of every template specialization that it can find.
+
+## Development
+
+When developing on the project, it is recommended to link it to a different build of clang and LLVM
+that has the debugging symbols and assertions enabled. The clang assertions catch many errors that
+would otherwise be very hard to debug.
