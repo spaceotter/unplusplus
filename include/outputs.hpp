@@ -24,6 +24,7 @@ class Outputs {
 
 class FileOutputs : public Outputs {
   std::filesystem::path _outheader;
+  std::filesystem::path _outsource;
   std::ofstream _hf;
   std::ofstream _sf;
   std::string _macroname;

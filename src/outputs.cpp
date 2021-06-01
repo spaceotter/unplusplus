@@ -17,7 +17,18 @@ static void sanitize(std::string &name) {
 }
 
 FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sources)
-    : _outheader(path(stem).concat(".h")), _hf(_outheader), _sf(path(stem).concat(".cpp")) {
+    : _outheader(path(stem).concat(".h")),
+      _outsource(path(stem).concat(".cpp")),
+      _hf(_outheader),
+      _sf(_outsource) {
+  if (_hf.fail()) {
+    std::cerr << "Error: failed to open " << _outheader << " for writing!" << std::endl;
+    std::exit(1);
+  }
+  if (_sf.fail()) {
+    std::cerr << "Error: failed to open " << _outsource << " for writing!" << std::endl;
+    std::exit(1);
+  }
   _macroname = stem.filename().string();
   sanitize(_macroname);
   _hf << "/*\n";
