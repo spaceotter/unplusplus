@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "libIrrlicht-clib.h"
+#include "Irrlicht-clib.h"
 
 #ifdef __cplusplus
 #error "This is supposed to be compiled as C!"
