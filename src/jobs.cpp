@@ -11,6 +11,7 @@
 #include "enum.hpp"
 #include "filter.hpp"
 #include "function.hpp"
+#include "options.hpp"
 
 using namespace clang;
 using namespace unplusplus;
@@ -89,7 +90,7 @@ void JobBase::depends(clang::QualType QT, bool define) {
 }
 
 void JobBase::checkReady() {
-  std::cout << "Job Created: " << _name << std::endl;
+  if (Verbose) std::cout << "Job Created: " << _name << std::endl;
   if (_depends.empty()) _manager._ready.push(this);
 }
 
@@ -105,7 +106,7 @@ void JobBase::run() {
     std::exit(1);
   }
   _done = true;
-  std::cout << "Job Done: " << _name << std::endl;
+  if (Verbose) std::cout << "Job Done: " << _name << std::endl;
   for (auto *d : _dependent) {
     d->satisfy(this);
   }

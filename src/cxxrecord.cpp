@@ -10,6 +10,7 @@
 #include <clang/AST/RecordLayout.h>
 
 #include "filter.hpp"
+#include "options.hpp"
 
 using namespace unplusplus;
 using namespace clang;
@@ -57,7 +58,7 @@ bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
       CTSD->getSpecializedTemplate()->getTemplatedDecl()->isCompleteDefinition()) {
     // clang is "lazy" and doesn't add any members that weren't used. We can force them to be
     // added.
-    std::cout << "Instantiating " << cfg.getDebugName(D) << std::endl;
+    if (Verbose) std::cout << "Instantiating " << cfg.getDebugName(D) << std::endl;
     SourceLocation L = CTSD->getLocation();
     TemplateSpecializationKind TSK = TSK_ExplicitInstantiationDeclaration;
     if (!S.InstantiateClassTemplateSpecialization(L, CTSD, TSK, true)) {

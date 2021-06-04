@@ -38,7 +38,8 @@ set(SOURCE_FILES
     src/cxxrecord.cpp
     src/function.cpp
     src/enum.cpp
-    src/jobs.cpp)
+    src/jobs.cpp
+    src/options.cpp)
 
 add_executable(unplusplus ${SOURCE_FILES})
 target_compile_definitions(unplusplus PUBLIC "CLANG_RESOURCE_DIRECTORY=R\"\(${CLANG_RESOURCE_DIR}\)\"")

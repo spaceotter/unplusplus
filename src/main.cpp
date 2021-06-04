@@ -16,24 +16,12 @@
 #include "action.hpp"
 #include "identifier.hpp"
 #include "outputs.hpp"
+#include "options.hpp"
 
 using namespace clang;
 using namespace llvm;
 using namespace unplusplus;
 using std::filesystem::path;
-
-static cl::OptionCategory UppCategory("unplusplus options");
-static cl::opt<std::string> OutStem("o", cl::desc("Output files base name"), cl::Optional,
-                                    cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
-static cl::opt<std::string> ExcludesFile("excludes-file",
-                                         cl::desc("File of declarations to exclude"), cl::Optional,
-                                         cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
-static cl::list<std::string> ExcludeDecl("e", cl::desc("Exclude the fully qualified declaration"),
-                                         cl::ZeroOrMore, cl::cat(UppCategory),
-                                         cl::sub(*cl::AllSubCommands));
-static cl::opt<bool> NoDeprecated("no-deprecated",
-                                  cl::desc("Exclude deprecated or unavailable declarations"),
-                                  cl::Optional, cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
 
 int main(int argc, const char **argv) {
   std::vector<const char *> args(argv, argv + argc);
