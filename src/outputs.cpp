@@ -5,6 +5,8 @@
 
 #include "outputs.hpp"
 
+#include "json.hpp"
+
 using namespace unplusplus;
 using std::filesystem::path;
 
@@ -19,8 +21,10 @@ static void sanitize(std::string &name) {
 FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sources)
     : _outheader(path(stem).concat(".h")),
       _outsource(path(stem).concat(".cpp")),
+      _outjson(path(stem).concat(".json")),
       _hf(_outheader),
-      _sf(_outsource) {
+      _sf(_outsource),
+      _json(Json::ValueType::objectValue) {
   if (_hf.fail()) {
     std::cerr << "Error: failed to open " << _outheader << " for writing!" << std::endl;
     std::exit(1);
@@ -68,6 +72,13 @@ void FileOutputs::addCHeader(const std::string &path) {
     _hf << "#include \"" << path << "\"\n\n";
     _cheaders.emplace(path);
   }
+
+  Json::StreamWriterBuilder wbuilder;
+  wbuilder["indentation"] = " ";
+  std::unique_ptr<Json::StreamWriter> writer{wbuilder.newStreamWriter()};
+  std::ofstream ofjson(_outjson);
+  writer->write(_json, &ofjson);
+  ofjson << std::endl;
 }
 
 SubOutputs::~SubOutputs() {

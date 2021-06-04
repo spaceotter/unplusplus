@@ -11,6 +11,9 @@ if(NOT LLVM_FOUND)
     find_package(LLVM 11.0.0 REQUIRED CONFIG)
 endif()
 
+include(FindPkgConfig)
+pkg_check_modules(jsoncpp REQUIRED IMPORTED_TARGET jsoncpp)
+
 # Find Clang resource directory with Clang executable.
 if(NOT CLANG_RESOURCE_DIR)
     set(CLANG_EXECUTABLE "clang")
@@ -42,7 +45,8 @@ set(SOURCE_FILES
     src/function.cpp
     src/enum.cpp
     src/jobs.cpp
-    src/options.cpp)
+    src/options.cpp
+    src/json.cpp)
 
 add_executable(unplusplus ${SOURCE_FILES})
 target_compile_definitions(unplusplus PUBLIC "CLANG_RESOURCE_DIRECTORY=R\"\(${CLANG_RESOURCE_DIR}\)\"")
@@ -58,7 +62,7 @@ target_include_directories(unplusplus PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/includ
 # target_compile_definitions(unplusplus PUBLIC _GNU_SOURCE __STDC_CONSTANT_MACROS __STDC_FORMAT_MACROS __STDC_LIMIT_MACROS _DEBUG)
 # target_link_libraries(unplusplus PUBLIC ~/src/clang11/src/clang-11.0.1.src/build/lib/libclang-cpp.so ~/src/llvm11/src/llvm-11.0.1.src/build/lib/libLLVM-11.so)
 
-target_link_libraries(unplusplus PUBLIC clang-cpp LLVM)
+target_link_libraries(unplusplus PUBLIC clang-cpp LLVM PkgConfig::jsoncpp)
 
 set(APP_BIN_DIR "${CMAKE_BINARY_DIR}/bin")
 set_target_properties(unplusplus PROPERTIES

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "filter.hpp"
+#include "json.hpp"
 #include "outputs.hpp"
 
 namespace unplusplus {
@@ -46,6 +47,7 @@ class JobBase {
   JobBase(JobManager &manager, clang::Sema &S);
   virtual ~JobBase() = default;
   IdentifierConfig &cfg();
+  JsonConfig &jcfg();
   JobManager &manager() { return _manager; }
   bool isDone() const { return _done; }
   const std::string &name() const { return _name; }
@@ -107,6 +109,7 @@ class JobManager {
   Outputs &_out;
   DeclFilter _filter;
   IdentifierConfig _cfg;
+  JsonConfig _jcfg;
   std::unordered_set<clang::Decl *> _decls;
   std::unordered_set<clang::Decl *> _renamed;
   std::vector<std::unique_ptr<JobBase>> _jobs;
@@ -117,13 +120,17 @@ class JobManager {
   std::queue<clang::Decl *> _lazy;
 
  public:
-  JobManager(Outputs &out, const clang::ASTContext &_astc, DeclFilterConfig &FC)
-      : _out(out), _filter(_astc.getLangOpts(), FC), _cfg(_astc.getLangOpts(), _filter) {}
+  JobManager(Outputs &out, const clang::ASTContext &ASTC, DeclFilterConfig &FC)
+      : _out(out),
+        _filter(ASTC.getLangOpts(), FC),
+        _cfg(ASTC.getLangOpts(), _filter),
+        _jcfg(_cfg, ASTC, out) {}
   ~JobManager();
 
   Outputs &out() { return _out; }
   IdentifierConfig &cfg() { return _cfg; }
   DeclFilter &filter() { return _filter; }
+  JsonConfig &jcfg() { return _jcfg; }
   void flush(clang::Sema &S);
 
   // Apply the operator to the declarations nested in the type

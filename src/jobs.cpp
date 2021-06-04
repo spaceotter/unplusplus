@@ -22,6 +22,7 @@ JobBase::JobBase(JobManager &manager, clang::Sema &S)
 }
 
 IdentifierConfig &JobBase::cfg() { return _manager.cfg(); }
+JsonConfig &JobBase::jcfg() { return _manager.jcfg(); }
 
 void JobBase::depends(JobBase *other) {
   if (other && !other->_done) {
@@ -98,9 +99,9 @@ void JobBase::checkReady() {
 
 void JobBase::run() {
   if (_done) {
-    // std::cerr << "Error: " << _name << " ran again" << std::endl;
     return;
   }
+  if (Verbose) std::cout << "Job Started: " << _name << std::endl;
   try {
     impl();
   } catch (const mangling_error &err) {

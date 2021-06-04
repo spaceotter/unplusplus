@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <json/json.h>
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -19,14 +21,17 @@ class Outputs {
  public:
   virtual std::ostream &hf() = 0;
   virtual std::ostream &sf() = 0;
+  virtual Json::Value &json() = 0;
   virtual void addCHeader(const std::string &path) = 0;
 };
 
 class FileOutputs : public Outputs {
   std::filesystem::path _outheader;
   std::filesystem::path _outsource;
+  std::filesystem::path _outjson;
   std::ofstream _hf;
   std::ofstream _sf;
+  Json::Value _json;
   std::string _macroname;
   std::unordered_set<std::string> _cheaders;
   std::unordered_set<std::string> _exclude_headers;
@@ -34,8 +39,9 @@ class FileOutputs : public Outputs {
  public:
   FileOutputs(const std::filesystem::path &stem, const std::vector<std::string> &sources);
   ~FileOutputs();
-  std::ostream &hf() override { return _hf; };
-  std::ostream &sf() override { return _sf; };
+  std::ostream &hf() override { return _hf; }
+  std::ostream &sf() override { return _sf; }
+  Json::Value &json() override { return _json; }
   void addCHeader(const std::string &path) override;
 };
 
@@ -47,8 +53,9 @@ class SubOutputs : public Outputs {
  public:
   explicit SubOutputs(Outputs &parent) : _parent(parent) {}
   ~SubOutputs();
-  std::ostream &hf() override { return _hf; };
-  std::ostream &sf() override { return _sf; };
+  std::ostream &hf() override { return _hf; }
+  std::ostream &sf() override { return _sf; }
+  Json::Value &json() override { return _parent.json(); }
   void addCHeader(const std::string &path) override { _parent.addCHeader(path); }
   void erase() {
     _hf.str("");

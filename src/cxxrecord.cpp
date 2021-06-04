@@ -10,6 +10,7 @@
 #include <clang/AST/RecordLayout.h>
 
 #include "filter.hpp"
+#include "json.hpp"
 #include "options.hpp"
 
 using namespace unplusplus;
@@ -30,6 +31,7 @@ ClassDeclareJob::ClassDeclareJob(ClassDeclareJob::type *D, clang::Sema &S, JobMa
 
   checkReady();
 }
+
 void ClassDeclareJob::impl() {
   _out.hf() << "// " << _location << "\n";
   _out.hf() << "// " << _name << "\n";
@@ -47,6 +49,12 @@ void ClassDeclareJob::impl() {
   _out.hf() << "#else\n";
   _out.hf() << "typedef " << keyword << " " << i.c << cfg()._struct << " " << i.c << ";\n";
   _out.hf() << "#endif // __cplusplus\n\n";
+
+  Json::Value j(Json::ValueType::objectValue);
+  j[jcfg()._cname] = i.c;
+  j[jcfg()._qname] = jcfg().jsonQName(_d);
+  j[jcfg()._location] = _location;
+  _out.json()[jcfg()._class][i.cpp] = j;
 }
 
 SuperclassVisitor::SuperclassVisitor(Visitor F, const clang::CXXRecordDecl *D, Visitor H)
@@ -362,6 +370,7 @@ void ClassDefineJob::impl() {
     keyword = "struct";
 
   Identifier i(_d, cfg());
+  Json::Value &j = _out.json()[jcfg()._class][i.cpp];
   _out.hf() << keyword << " " << i.c << cfg()._struct << " {\n";
   writeFields(_fields);
   _out.hf() << "};\n";
@@ -374,6 +383,8 @@ void ClassDefineJob::impl() {
             << ") == " << _d->getASTContext().getTypeSizeInChars(_d->getTypeForDecl()).getQuantity()
             << ", \"Size of C struct must match C++\");\n";
   _out.hf() << "#endif\n\n";
+
+  j[jcfg()._union] = _d->isUnion();
 
   if (!_no_ctor && _d->hasDefaultConstructor()) {
     std::string name = i.c;
