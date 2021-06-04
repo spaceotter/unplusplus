@@ -89,7 +89,7 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
   std::string nameField(const std::string &original);
   void findFields();
   void addFields(const clang::CXXRecordDecl *d, ClassList parents, FieldInfo &list);
-  void writeFields(FieldInfo &list, std::string indent = "  ",
+  void writeFields(FieldInfo &list, Json::Value &j, std::string indent = "  ",
                    std::unordered_set<std::string> *names = nullptr);
 
  public:

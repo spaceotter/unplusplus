@@ -312,7 +312,7 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList pa
   }
 }
 
-void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
+void ClassDefineJob::writeFields(FieldInfo &list, Json::Value &j, std::string indent,
                                  std::unordered_set<std::string> *names) {
   const ASTContext &AC = _d->getASTContext();
   std::unique_ptr<std::unordered_set<std::string>> mynames;
@@ -332,19 +332,27 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
     }
 
     Identifier fi(f.type, Identifier(f.name, cfg()), cfg());
+    Json::Value fj(Json::ValueType::objectValue);
+    fj[jcfg()._union] = f.isUnion;
+    if (f.name.size()) fj[jcfg()._fieldName] = f.name;
+
     if (f.subFields.size()) {
       if (f.isUnion)
         _out.hf() << indent << "union {\n";
       else
         _out.hf() << indent << "struct {\n";
-      writeFields(f, indent + "  ", f.name.empty() ? names : nullptr);
+      Json::Value sj(Json::ValueType::arrayValue);
+      writeFields(f, sj, indent + "  ", f.name.empty() ? names : nullptr);
       _out.hf() << indent << "}";
       if (f.name.size()) _out.hf() << " " << fi.c;
       _out.hf() << ";\n";
+      fj[jcfg()._fields] = sj;
     } else {
       _out.hf() << indent << fi.c;
       if (f.field && f.field->isBitField()) {
-        _out.hf() << " : " << f.field->getBitWidthValue(AC);
+        unsigned bits = f.field->getBitWidthValue(AC);
+        _out.hf() << " : " << bits;
+        fj[jcfg()._fieldBits] = bits;
       }
       Decl *LocD = f.field ? (Decl *)f.field : (Decl *)f.parents.back();
       std::string location = LocD->getLocation().printToString(AC.getSourceManager());
@@ -354,7 +362,11 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
       }
       _out.hf() << getName(f.field);
       _out.hf() << " @ " << location << "\n";
+      fj[jcfg()._location] = location;
+      fj[jcfg()._fieldType] = jcfg().jsonType(f.type);
     }
+
+    j.append(fj);
   }
 }
 
@@ -371,8 +383,10 @@ void ClassDefineJob::impl() {
 
   Identifier i(_d, cfg());
   Json::Value &j = _out.json()[jcfg()._class][i.cpp];
+  j[jcfg()._union] = _d->isUnion();
+  j[jcfg()._fields] = Json::Value(Json::ValueType::arrayValue);
   _out.hf() << keyword << " " << i.c << cfg()._struct << " {\n";
-  writeFields(_fields);
+  writeFields(_fields, j[jcfg()._fields]);
   _out.hf() << "};\n";
 
   _out.hf() << "#ifdef __cplusplus\n";
@@ -383,8 +397,6 @@ void ClassDefineJob::impl() {
             << ") == " << _d->getASTContext().getTypeSizeInChars(_d->getTypeForDecl()).getQuantity()
             << ", \"Size of C struct must match C++\");\n";
   _out.hf() << "#endif\n\n";
-
-  j[jcfg()._union] = _d->isUnion();
 
   if (!_no_ctor && _d->hasDefaultConstructor()) {
     std::string name = i.c;

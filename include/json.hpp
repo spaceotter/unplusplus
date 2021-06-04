@@ -32,6 +32,10 @@ struct JsonConfig {
   const std::string _args = "args";
   const std::string _location = "location";
   const std::string _union = "union";
+  const std::string _fields = "fields";
+  const std::string _fieldName = "name";
+  const std::string _fieldBits = "bits";
+  const std::string _fieldType = "type";
 
   JsonConfig(const IdentifierConfig &IC, const clang::ASTContext &AC, Outputs &Out);
   Json::Value jsonType(const clang::QualType &QT);
