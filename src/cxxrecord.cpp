@@ -114,15 +114,17 @@ void ClassDefineJob::findFields() {
   // The procedure here has to mimic clang's RecordLayoutBuilder.cpp to order the fields of the base
   // classes correctly. It may not work with the Microsoft ABI.
   _d->getIndirectPrimaryBases(_indirect);
-  findNonVirtualBaseFields(_d);
-  addFields(_d, _fields);
-  findVirtualBaseFields(_d);
+  findNonVirtualBaseFields(_d, {});
+  addFields(_d, {}, _fields);
+  findVirtualBaseFields(_d, {});
   if (_d->isEmpty()) {
-    _fields.sub(nullptr, _d, "__empty", _d->getASTContext().CharTy);
+    _fields.sub(nullptr, {_d}, "__empty", _d->getASTContext().CharTy);
   }
 }
 
-void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, FieldInfo &list) {
+void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList parents, FieldInfo &list) {
+  std::vector<const clang::CXXRecordDecl *> newParents(parents);
+  newParents.push_back(d);
   const ASTContext &AC = _d->getASTContext();
 
   for (const auto *f : d->fields()) {
@@ -136,10 +138,10 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, FieldInfo &list) {
       const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(rd->getParent());
       if (rd->isEmbeddedInDeclarator() && rd->isThisDeclarationADefinition() &&
           !Identifier::ids.count(rd) && dc == d) {
-        list.sub(f, d, name, QT, rd->isUnion());
+        list.sub(f, newParents, name, QT, rd->isUnion());
         // the scope is shared
         if (name.empty()) list.subFields.back().nameCount = list.nameCount;
-        addFields(rd, list.subFields.back());
+        addFields(rd, newParents, list.subFields.back());
         continue;
       }
     } else if (QT->isEnumeralType()) {
@@ -149,18 +151,21 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, FieldInfo &list) {
       const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(ed->getParent());
       if (ed->isEmbeddedInDeclarator() && ed->isThisDeclarationADefinition() &&
           !Identifier::ids.count(ed) && dc == d) {
-        // give the anonymous enum the name of the field.
+        // give the anonymous enum the name of the field. Later, the EnumDecl will be picked up when
+        // the declarations in the class's context are explored, and it can use this name.
         Identifier::ids[ed] = Identifier(f, cfg());
       }
     }
 
     manager().filter().sanitizeType(QT, AC);
-    list.sub(f, d, name, QT);
+    list.sub(f, newParents, name, QT);
     depends(QT, true);
   }
 }
 
-void ClassDefineJob::findVirtualBaseFields(const clang::CXXRecordDecl *d) {
+void ClassDefineJob::findVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents) {
+  std::vector<const clang::CXXRecordDecl *> newParents(parents);
+  newParents.push_back(d);
   const ASTRecordLayout &layout = d->getASTContext().getASTRecordLayout(d);
   const CXXRecordDecl *PrimaryBase = layout.getPrimaryBase();
   for (const auto base : d->bases()) {
@@ -169,37 +174,39 @@ void ClassDefineJob::findVirtualBaseFields(const clang::CXXRecordDecl *d) {
       if (!(based == PrimaryBase && layout.isPrimaryBaseVirtual())) {
         if (!_indirect.count(based)) {
           if (!_vbases.insert(based).second) continue;
-          findNonVirtualBaseFields(based);
-          addFields(based, _fields);
+          findNonVirtualBaseFields(based, newParents);
+          addFields(based, newParents, _fields);
         }
       }
     }
     if (!based->getNumVBases()) continue;
-    findVirtualBaseFields(based);
+    findVirtualBaseFields(based, newParents);
   }
 }
 
-void ClassDefineJob::findNonVirtualBaseFields(const clang::CXXRecordDecl *d) {
+void ClassDefineJob::findNonVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents) {
+  std::vector<const clang::CXXRecordDecl *> newParents(parents);
+  newParents.push_back(d);
   const ASTRecordLayout &layout = d->getASTContext().getASTRecordLayout(d);
   const CXXRecordDecl *PrimaryBase = layout.getPrimaryBase();
   if (PrimaryBase) {
-    findNonVirtualBaseFields(PrimaryBase);
-    addFields(PrimaryBase, _fields);
+    findNonVirtualBaseFields(PrimaryBase, newParents);
+    addFields(PrimaryBase, newParents, _fields);
     if (layout.isPrimaryBaseVirtual()) {
       _indirect.insert(PrimaryBase);
       _vbases.emplace(PrimaryBase);
     }
   } else if (d->isDynamicClass()) {
     std::string name("vtable");
-    _fields.sub(nullptr, d, name, d->getASTContext().VoidPtrTy);
+    _fields.sub(nullptr, newParents, name, d->getASTContext().VoidPtrTy);
   }
 
   for (const auto base : d->bases()) {
     if (base.isVirtual()) continue;
     const CXXRecordDecl *based = base.getType()->getAsCXXRecordDecl();
     if (based == PrimaryBase && !layout.isPrimaryBaseVirtual()) continue;
-    findNonVirtualBaseFields(based);
-    addFields(based, _fields);
+    findNonVirtualBaseFields(based, newParents);
+    addFields(based, newParents, _fields);
   }
 }
 
@@ -214,8 +221,9 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
   for (auto &f : list.subFields) {
     if (f.name.size()) {
       if ((*list.nameCount)[f.name] > 1) {
-        f.name =
-            Identifier(f.parent, cfg()).c.substr(cfg()._root.size()) + cfg().c_separator + f.name;
+        for (auto p = f.parents.rbegin(); p != f.parents.rend(); p++) {
+          f.name = getName(*p) + cfg().c_separator + f.name;
+        }
       }
       if (names->count(f.name)) {
         int i = 2;
@@ -241,7 +249,7 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
       if (f.field && f.field->isBitField()) {
         _out.hf() << " : " << f.field->getBitWidthValue(AC);
       }
-      Decl *LocD = f.field ? (Decl *)f.field : (Decl *)f.parent;
+      Decl *LocD = f.field ? (Decl *)f.field : (Decl *)f.parents.back();
       std::string location = LocD->getLocation().printToString(AC.getSourceManager());
       _out.hf() << "; // " << location << "\n";
     }

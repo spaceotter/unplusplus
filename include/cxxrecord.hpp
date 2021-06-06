@@ -18,9 +18,10 @@ struct ClassDeclareJob : public Job<clang::CXXRecordDecl> {
 };
 
 class ClassDefineJob : public Job<clang::CXXRecordDecl> {
+  typedef const std::vector<const clang::CXXRecordDecl *> ClassList;
   struct FieldInfo {
     const clang::FieldDecl *field;
-    const clang::CXXRecordDecl *parent;
+    ClassList parents;
     std::string name;
     clang::QualType type;
     bool isUnion;
@@ -28,19 +29,20 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
     std::vector<FieldInfo> subFields;
     FieldInfo()
         : name("root"), nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
-    FieldInfo(const clang::FieldDecl *F, const clang::CXXRecordDecl *P, std::string N,
+    FieldInfo(const clang::FieldDecl *F, ClassList P, std::string N,
               clang::QualType T, bool isUnion = false)
         : field(F),
-          parent(P),
+          parents(P),
           name(N),
           type(T),
           isUnion(isUnion),
           nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
-    void sub(const clang::FieldDecl *F, const clang::CXXRecordDecl *P, std::string N,
+    void sub(const clang::FieldDecl *F, ClassList P, std::string N,
              clang::QualType T, bool isUnion = false) {
       subFields.push_back({F, P, N, T, isUnion});
       if (N.size()) (*nameCount)[N] += 1;
     }
+    void adjustNames();
   };
   bool _no_ctor = false;
   std::unordered_set<const clang::CXXRecordDecl *> _vbases;
@@ -49,9 +51,9 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
 
   std::string nameField(const std::string &original);
   void findFields();
-  void addFields(const clang::CXXRecordDecl *d, FieldInfo &list);
-  void findVirtualBaseFields(const clang::CXXRecordDecl *d);
-  void findNonVirtualBaseFields(const clang::CXXRecordDecl *d);
+  void addFields(const clang::CXXRecordDecl *d, ClassList parents, FieldInfo &list);
+  void findVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents);
+  void findNonVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents);
   void writeFields(FieldInfo &list, std::string indent = "  ",
                    std::unordered_set<std::string> *names = nullptr);
 
