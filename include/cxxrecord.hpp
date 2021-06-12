@@ -18,6 +18,11 @@ struct ClassDeclareJob : public Job<clang::CXXRecordDecl> {
 };
 
 typedef const std::vector<const clang::CXXRecordDecl *> ClassList;
+
+/*
+ * Apply the given function to each base class, along with the path it was reached with. The same
+ * class can be visited more than once because of the multiple-inheritance diamond problem.
+ */
 struct SuperclassVisitor {
   typedef std::function<void(const clang::CXXRecordDecl *, ClassList)> Visitor;
 
@@ -40,6 +45,24 @@ struct SuperclassVisitor {
   SuperclassVisitor(Visitor F, const clang::CXXRecordDecl *D, Visitor H = nullptr);
 };
 
+/*
+ * A helper class to make names unique if there are members with the same name through multiple
+ * inheritance due to the diamond problem.
+ */
+class DiamondRenamer {
+  struct Name {
+    std::string &name;
+    std::vector<const clang::CXXRecordDecl *> path;
+  };
+  std::unordered_map<std::string, std::vector<Name>> _names;
+
+ public:
+  /* Add the name and the path it was inherited from to the database */
+  void submit(std::string &name, ClassList path);
+  /* Prepend base class names until duplicate names are eliminated. */
+  void disambiguate(const IdentifierConfig &cfg);
+};
+
 class ClassDefineJob : public Job<clang::CXXRecordDecl> {
   typedef const std::vector<const clang::CXXRecordDecl *> ClassList;
   struct FieldInfo {
@@ -48,24 +71,17 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
     std::string name;
     clang::QualType type;
     bool isUnion;
-    std::shared_ptr<std::unordered_map<std::string, unsigned>> nameCount;
     std::vector<FieldInfo> subFields;
-    FieldInfo()
-        : name("root"), nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
+    FieldInfo() : name("root") {}
     FieldInfo(const clang::FieldDecl *F, ClassList P, std::string N, clang::QualType T,
               bool isUnion = false)
-        : field(F),
-          parents(P),
-          name(N),
-          type(T),
-          isUnion(isUnion),
-          nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
+        : field(F), parents(P), name(N), type(T), isUnion(isUnion) {}
     void sub(const clang::FieldDecl *F, ClassList P, std::string N, clang::QualType T,
              bool isUnion = false) {
       subFields.push_back({F, P, N, T, isUnion});
-      if (N.size()) (*nameCount)[N] += 1;
     }
-    void adjustNames();
+    void adjustNames(const IdentifierConfig &cfg);
+    void adjustNames(DiamondRenamer &DR, const IdentifierConfig &cfg);
   };
   bool _no_ctor = false;
   FieldInfo _fields;

@@ -106,6 +106,61 @@ void SuperclassVisitor::visitVirtualBase(const clang::CXXRecordDecl *D, ClassLis
   }
 }
 
+void DiamondRenamer::submit(std::string &name, ClassList path) {
+  _names[name].push_back({name, path});
+}
+
+void DiamondRenamer::disambiguate(const IdentifierConfig &cfg) {
+  for (auto &n : _names) {
+    if (n.second.size() > 1) {
+      while (1) {
+        size_t exhausted = 0;
+        for (auto &o : n.second) {
+          if (o.path.size()) {
+            o.name = getName(o.path.back()) + cfg.c_separator + o.name;
+            o.path.pop_back();
+          } else {
+            exhausted++;
+          }
+        }
+
+        if (exhausted == n.second.size()) break;
+
+        std::unordered_set<std::string> newNames;
+        for (auto &o : n.second) {
+          newNames.emplace(o.name);
+        }
+
+        if (newNames.size() == n.second.size()) break;
+      }
+    }
+  }
+}
+
+void ClassDefineJob::FieldInfo::adjustNames(const IdentifierConfig &cfg) {
+  DiamondRenamer DR;
+  for (auto &sf : subFields) {
+    sf.adjustNames(DR, cfg);
+  }
+  DR.disambiguate(cfg);
+}
+
+void ClassDefineJob::FieldInfo::adjustNames(DiamondRenamer &DR, const IdentifierConfig &cfg) {
+  if (name.size()) {
+    DR.submit(name, parents);
+    if (subFields.size()) {
+      // process the anonymous struct or union's members in a new scope
+      adjustNames(cfg);
+    }
+  } else {
+    // for an anonymous struct or union that didn't also declare a field, process the names in the
+    // parent scope
+    for (auto &sf : subFields) {
+      sf.adjustNames(DR, cfg);
+    }
+  }
+}
+
 bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
   auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(D);
   // If an explicit specialiation already appeared, it may be that it was put there to create a
@@ -178,6 +233,7 @@ void ClassDefineJob::findFields() {
                         _fields.sub(nullptr, L, name, D->getASTContext().VoidPtrTy);
                       }
                     });
+  _fields.adjustNames(cfg());
 
   if (_d->isEmpty()) {
     _fields.sub(nullptr, {_d}, "__empty", _d->getASTContext().CharTy);
@@ -203,7 +259,6 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList pa
           !Identifier::ids.count(rd) && dc == d) {
         list.sub(f, newParents, name, QT, rd->isUnion());
         // the scope is shared
-        if (name.empty()) list.subFields.back().nameCount = list.nameCount;
         addFields(rd, newParents, list.subFields.back());
         continue;
       }
@@ -236,11 +291,6 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
   }
   for (auto &f : list.subFields) {
     if (f.name.size()) {
-      if ((*list.nameCount)[f.name] > 1) {
-        for (auto p = f.parents.rbegin(); p != f.parents.rend(); p++) {
-          f.name = getName(*p) + cfg().c_separator + f.name;
-        }
-      }
       if (names->count(f.name)) {
         int i = 2;
         while (names->count(f.name + cfg().c_separator + std::to_string(i))) i++;
