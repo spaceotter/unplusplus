@@ -15,8 +15,8 @@
 
 #include "action.hpp"
 #include "identifier.hpp"
-#include "outputs.hpp"
 #include "options.hpp"
+#include "outputs.hpp"
 
 using namespace clang;
 using namespace llvm;

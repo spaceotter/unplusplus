@@ -29,16 +29,16 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
     std::vector<FieldInfo> subFields;
     FieldInfo()
         : name("root"), nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
-    FieldInfo(const clang::FieldDecl *F, ClassList P, std::string N,
-              clang::QualType T, bool isUnion = false)
+    FieldInfo(const clang::FieldDecl *F, ClassList P, std::string N, clang::QualType T,
+              bool isUnion = false)
         : field(F),
           parents(P),
           name(N),
           type(T),
           isUnion(isUnion),
           nameCount(std::make_shared<std::unordered_map<std::string, unsigned>>()) {}
-    void sub(const clang::FieldDecl *F, ClassList P, std::string N,
-             clang::QualType T, bool isUnion = false) {
+    void sub(const clang::FieldDecl *F, ClassList P, std::string N, clang::QualType T,
+             bool isUnion = false) {
       subFields.push_back({F, P, N, T, isUnion});
       if (N.size()) (*nameCount)[N] += 1;
     }

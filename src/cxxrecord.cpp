@@ -122,7 +122,8 @@ void ClassDefineJob::findFields() {
   }
 }
 
-void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList parents, FieldInfo &list) {
+void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList parents,
+                               FieldInfo &list) {
   std::vector<const clang::CXXRecordDecl *> newParents(parents);
   newParents.push_back(d);
   const ASTContext &AC = _d->getASTContext();
