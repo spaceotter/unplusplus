@@ -17,6 +17,29 @@ struct ClassDeclareJob : public Job<clang::CXXRecordDecl> {
   void impl() override;
 };
 
+typedef const std::vector<const clang::CXXRecordDecl *> ClassList;
+struct SuperclassVisitor {
+  typedef std::function<void(const clang::CXXRecordDecl *, ClassList)> Visitor;
+
+ private:
+  std::unordered_set<const clang::CXXRecordDecl *> _vbases;
+  clang::CXXIndirectPrimaryBaseSet _indirect;
+  Visitor _fn;
+  Visitor _fn2;
+  void visitNonVirtualBase(const clang::CXXRecordDecl *D, ClassList L);
+  void visitVirtualBase(const clang::CXXRecordDecl *D, ClassList L);
+
+ public:
+  /**
+   * Visits the superclass hierarchy in the correct data layout order depending on
+   * virtual/non-virtual inheritance.
+   * @param[in] F The function to process a base class
+   * @param[in] D The derived class
+   * @param[in] H Optional, called before non-virtual superclasses
+   */
+  SuperclassVisitor(Visitor F, const clang::CXXRecordDecl *D, Visitor H = nullptr);
+};
+
 class ClassDefineJob : public Job<clang::CXXRecordDecl> {
   typedef const std::vector<const clang::CXXRecordDecl *> ClassList;
   struct FieldInfo {
@@ -45,15 +68,11 @@ class ClassDefineJob : public Job<clang::CXXRecordDecl> {
     void adjustNames();
   };
   bool _no_ctor = false;
-  std::unordered_set<const clang::CXXRecordDecl *> _vbases;
-  clang::CXXIndirectPrimaryBaseSet _indirect;
   FieldInfo _fields;
 
   std::string nameField(const std::string &original);
   void findFields();
   void addFields(const clang::CXXRecordDecl *d, ClassList parents, FieldInfo &list);
-  void findVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents);
-  void findNonVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents);
   void writeFields(FieldInfo &list, std::string indent = "  ",
                    std::unordered_set<std::string> *names = nullptr);
 

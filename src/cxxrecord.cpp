@@ -49,6 +49,63 @@ void ClassDeclareJob::impl() {
   _out.hf() << "#endif // __cplusplus\n\n";
 }
 
+SuperclassVisitor::SuperclassVisitor(Visitor F, const clang::CXXRecordDecl *D, Visitor H)
+    : _fn(F), _fn2(H) {
+  // The procedure here has to mimic clang's RecordLayoutBuilder.cpp to order the fields of the base
+  // classes correctly. It may not work with the Microsoft ABI.
+  D->getIndirectPrimaryBases(_indirect);
+  visitNonVirtualBase(D, {});
+  F(D, {});
+  visitVirtualBase(D, {});
+}
+
+void SuperclassVisitor::visitNonVirtualBase(const clang::CXXRecordDecl *D, ClassList L) {
+  std::vector<const clang::CXXRecordDecl *> newParents(L);
+  newParents.push_back(D);
+
+  const ASTRecordLayout &layout = D->getASTContext().getASTRecordLayout(D);
+  const CXXRecordDecl *PrimaryBase = layout.getPrimaryBase();
+  if (PrimaryBase) {
+    visitNonVirtualBase(PrimaryBase, newParents);
+    _fn(PrimaryBase, newParents);
+    if (layout.isPrimaryBaseVirtual()) {
+      _indirect.insert(PrimaryBase);
+      _vbases.emplace(PrimaryBase);
+    }
+  }
+
+  if (_fn2) _fn2(D, newParents);
+
+  for (const auto base : D->bases()) {
+    if (base.isVirtual()) continue;
+    const CXXRecordDecl *based = base.getType()->getAsCXXRecordDecl();
+    if (based == PrimaryBase && !layout.isPrimaryBaseVirtual()) continue;
+    visitNonVirtualBase(based, newParents);
+    _fn(based, newParents);
+  }
+}
+
+void SuperclassVisitor::visitVirtualBase(const clang::CXXRecordDecl *D, ClassList L) {
+  std::vector<const clang::CXXRecordDecl *> newParents(L);
+  newParents.push_back(D);
+  const ASTRecordLayout &layout = D->getASTContext().getASTRecordLayout(D);
+  const CXXRecordDecl *PrimaryBase = layout.getPrimaryBase();
+  for (const auto base : D->bases()) {
+    const CXXRecordDecl *based = base.getType()->getAsCXXRecordDecl();
+    if (base.isVirtual()) {
+      if (!(based == PrimaryBase && layout.isPrimaryBaseVirtual())) {
+        if (!_indirect.count(based)) {
+          if (!_vbases.insert(based).second) continue;
+          visitNonVirtualBase(based, newParents);
+          _fn(based, newParents);
+        }
+      }
+    }
+    if (!based->getNumVBases()) continue;
+    visitVirtualBase(based, newParents);
+  }
+}
+
 bool ClassDefineJob::accept(type *D, const IdentifierConfig &cfg, Sema &S) {
   auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(D);
   // If an explicit specialiation already appeared, it may be that it was put there to create a
@@ -111,12 +168,17 @@ void ClassDefineJob::findFields() {
   if (!_d->hasDefinition() || !_d->isCompleteDefinition()) return;
   if (_fields.subFields.size()) return;
 
-  // The procedure here has to mimic clang's RecordLayoutBuilder.cpp to order the fields of the base
-  // classes correctly. It may not work with the Microsoft ABI.
-  _d->getIndirectPrimaryBases(_indirect);
-  findNonVirtualBaseFields(_d, {});
-  addFields(_d, {}, _fields);
-  findVirtualBaseFields(_d, {});
+  SuperclassVisitor([&](const clang::CXXRecordDecl *D, ClassList L) { addFields(D, L, _fields); },
+                    _d,
+                    [&](const clang::CXXRecordDecl *D, ClassList L) {
+                      const ASTContext &AC = D->getASTContext();
+                      const ASTRecordLayout &layout = AC.getASTRecordLayout(D);
+                      if (!layout.getPrimaryBase() && D->isDynamicClass()) {
+                        std::string name("vtable");
+                        _fields.sub(nullptr, L, name, D->getASTContext().VoidPtrTy);
+                      }
+                    });
+
   if (_d->isEmpty()) {
     _fields.sub(nullptr, {_d}, "__empty", _d->getASTContext().CharTy);
   }
@@ -164,53 +226,6 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList pa
   }
 }
 
-void ClassDefineJob::findVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents) {
-  std::vector<const clang::CXXRecordDecl *> newParents(parents);
-  newParents.push_back(d);
-  const ASTRecordLayout &layout = d->getASTContext().getASTRecordLayout(d);
-  const CXXRecordDecl *PrimaryBase = layout.getPrimaryBase();
-  for (const auto base : d->bases()) {
-    const CXXRecordDecl *based = base.getType()->getAsCXXRecordDecl();
-    if (base.isVirtual()) {
-      if (!(based == PrimaryBase && layout.isPrimaryBaseVirtual())) {
-        if (!_indirect.count(based)) {
-          if (!_vbases.insert(based).second) continue;
-          findNonVirtualBaseFields(based, newParents);
-          addFields(based, newParents, _fields);
-        }
-      }
-    }
-    if (!based->getNumVBases()) continue;
-    findVirtualBaseFields(based, newParents);
-  }
-}
-
-void ClassDefineJob::findNonVirtualBaseFields(const clang::CXXRecordDecl *d, ClassList parents) {
-  std::vector<const clang::CXXRecordDecl *> newParents(parents);
-  newParents.push_back(d);
-  const ASTRecordLayout &layout = d->getASTContext().getASTRecordLayout(d);
-  const CXXRecordDecl *PrimaryBase = layout.getPrimaryBase();
-  if (PrimaryBase) {
-    findNonVirtualBaseFields(PrimaryBase, newParents);
-    addFields(PrimaryBase, newParents, _fields);
-    if (layout.isPrimaryBaseVirtual()) {
-      _indirect.insert(PrimaryBase);
-      _vbases.emplace(PrimaryBase);
-    }
-  } else if (d->isDynamicClass()) {
-    std::string name("vtable");
-    _fields.sub(nullptr, newParents, name, d->getASTContext().VoidPtrTy);
-  }
-
-  for (const auto base : d->bases()) {
-    if (base.isVirtual()) continue;
-    const CXXRecordDecl *based = base.getType()->getAsCXXRecordDecl();
-    if (based == PrimaryBase && !layout.isPrimaryBaseVirtual()) continue;
-    findNonVirtualBaseFields(based, newParents);
-    addFields(based, newParents, _fields);
-  }
-}
-
 void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
                                  std::unordered_set<std::string> *names) {
   const ASTContext &AC = _d->getASTContext();
@@ -252,7 +267,12 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
       }
       Decl *LocD = f.field ? (Decl *)f.field : (Decl *)f.parents.back();
       std::string location = LocD->getLocation().printToString(AC.getSourceManager());
-      _out.hf() << "; // " << location << "\n";
+      _out.hf() << "; // ";
+      for (auto &p : f.parents) {
+        _out.hf() << getName(p) << "->";
+      }
+      _out.hf() << getName(f.field);
+      _out.hf() << " @ " << location << "\n";
     }
   }
 }
