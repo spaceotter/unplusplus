@@ -10,7 +10,7 @@ endif()
 
 # Find Clang resource directory with Clang executable.
 if(NOT CLANG_RESOURCE_DIR)
-    set(CLANG_EXECUTABLE "/opt/llvm11/bin/clang")
+    set(CLANG_EXECUTABLE "clang")
     if(NOT CLANG_EXECUTABLE)
         message(FATAL_ERROR "clang executable not found.")
     endif()

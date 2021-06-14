@@ -36,6 +36,7 @@ void JobBase::depends(clang::Decl *D, bool define) {
     depends(_manager._declarations.at(D));
   } else {
     std::cerr << "Job " << _name << " depends on declaration " << cfg().getCXXQualifiedName(D)
+              << " at " << D->getLocation().printToString(D->getASTContext().getSourceManager())
               << " but it does not exist." << std::endl;
     std::exit(1);
   }
@@ -44,6 +45,7 @@ void JobBase::depends(clang::Decl *D, bool define) {
       depends(_manager._definitions.at(D));
     } else {
       std::cerr << "Job " << _name << " depends on definition " << cfg().getCXXQualifiedName(D)
+                << " at " << D->getLocation().printToString(D->getASTContext().getSourceManager())
                 << " but it does not exist." << std::endl;
       std::exit(1);
     }

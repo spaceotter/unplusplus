@@ -46,7 +46,7 @@ FileOutputs::FileOutputs(const path &stem, const std::vector<std::string> &sourc
   _sf << "/*\n";
   _sf << " * This source file was generated automatically by unplusplus.\n";
   _sf << " */\n";
-  _sf << "#include \"" << (std::string)_outheader << "\"\n\n";
+  _sf << "#include \"" << _outheader.string() << "\"\n\n";
 
   _exclude_headers.emplace("bits/mathcalls.h");
 }

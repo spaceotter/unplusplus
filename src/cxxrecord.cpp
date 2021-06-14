@@ -229,8 +229,7 @@ void ClassDefineJob::findFields() {
                       const ASTContext &AC = D->getASTContext();
                       const ASTRecordLayout &layout = AC.getASTRecordLayout(D);
                       if (!layout.getPrimaryBase() && D->isDynamicClass()) {
-                        std::string name("vtable");
-                        _fields.sub(nullptr, L, name, D->getASTContext().VoidPtrTy);
+                        _fields.sub(nullptr, L, "vtable", AC.VoidPtrTy);
                       }
                     });
   _fields.adjustNames(cfg());
@@ -238,6 +237,22 @@ void ClassDefineJob::findFields() {
   if (_d->isEmpty()) {
     _fields.sub(nullptr, {_d}, "__empty", _d->getASTContext().CharTy);
   }
+}
+
+// extract a TagDecl which might be in the process of being declared anonymously.
+static const TagDecl * getTagDecl(QualType QT) {
+  if (QT->isRecordType()) {
+    return QT->getAsRecordDecl();
+  } else if (QT->isEnumeralType()) {
+    return QT->getUnqualifiedDesugaredType()->getAs<EnumType>()->getDecl();
+  } else if (QT->isAnyPointerType()) {
+    return getTagDecl(QT->getPointeeType());
+  } else if (QT->isArrayType()) {
+    return getTagDecl(QT->castAsArrayTypeUnsafe()->getElementType());
+  } else if (QT->isReferenceType()) {
+    return getTagDecl(QT->getPointeeType());
+  }
+  return nullptr;
 }
 
 void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList parents,
@@ -250,28 +265,35 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList pa
     QualType QT = f->getType();
     std::string name = getName(f);
 
-    if (QT->isRecordType()) {
-      // handles an anonymous struct or union defined as a field.
-      const CXXRecordDecl *rd = dyn_cast<CXXRecordDecl>(QT->getAsRecordDecl());
-      if (!rd) throw std::runtime_error("Record Type is not CXX");
-      const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(rd->getParent());
-      if (rd->isEmbeddedInDeclarator() && rd->isThisDeclarationADefinition() &&
-          !Identifier::ids.count(rd) && dc == d) {
-        list.sub(f, newParents, name, QT, rd->isUnion());
-        // the scope is shared
-        addFields(rd, newParents, list.subFields.back());
-        continue;
-      }
-    } else if (QT->isEnumeralType()) {
-      // handles an anonymous enum defined as a field.
-      const EnumDecl *ed =
-          dyn_cast<EnumDecl>(QT->getUnqualifiedDesugaredType()->getAs<EnumType>()->getDecl());
-      const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(ed->getParent());
-      if (ed->isEmbeddedInDeclarator() && ed->isThisDeclarationADefinition() &&
-          !Identifier::ids.count(ed) && dc == d) {
-        // give the anonymous enum the name of the field. Later, the EnumDecl will be picked up when
-        // the declarations in the class's context are explored, and it can use this name.
-        Identifier::ids[ed] = Identifier(f, cfg());
+    const TagDecl *TD = getTagDecl(QT);
+    if (TD) {
+      const CXXRecordDecl *dc = dyn_cast_or_null<CXXRecordDecl>(TD->getParent());
+      // detect whether the fields is also defining an anonymous type.
+      if (TD->isEmbeddedInDeclarator() && TD->isThisDeclarationADefinition() &&
+          !Identifier::ids.count(TD) && dc == d) {
+        if (const auto *RD = dyn_cast<CXXRecordDecl>(TD)) {
+          // FIXME: The struct here can theoretically have base classes which could theoretically be
+          // handled. This case is quite unconventional.
+          if (RD->getNumBases() > 0) {
+            std::cerr << "Error: An anonymous class, struct, or union has a base class: "
+                      << cfg().getCXXQualifiedName(RD) << " at "
+                      << RD->getLocation().printToString(AC.getSourceManager()) << std::endl;
+            std::exit(1);
+          }
+
+          // handles an anonymous struct or union used to group fields, where its fields appear in
+          // the parent scope, or defined as a part of a field declaration.
+          list.sub(f, newParents, name, QT, TD->isUnion());
+          addFields(dyn_cast<CXXRecordDecl>(TD), newParents, list.subFields.back());
+          continue;
+        } else {
+          // the anonymous struct, union, or enum can be named using this field's name. A dependency
+          // will be created on the anonymous type, but if we specify a name for it here, generation
+          // will proceed later with this name instead of throwing an error.
+          std::cout << "Renaming " << cfg().getCXXQualifiedName(TD);
+          Identifier::ids[TD] = Identifier(f, cfg());
+          std::cout << " to " << Identifier::ids[TD].cpp << std::endl;
+        }
       }
     }
 
