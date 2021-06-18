@@ -62,7 +62,7 @@ FunctionJob::FunctionJob(FunctionJob::type *D, clang::Sema &S, JobManager &jm)
 }
 
 void FunctionJob::impl() {
-  bool extc = _d->isExternC();
+  bool extc = _d->isExternC() || _d->isInExternCContext();
   _out.hf() << "// " << _location << "\n";
   _out.hf() << "// " << _name << "\n";
   if (!extc) {

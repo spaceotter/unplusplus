@@ -321,7 +321,8 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   else
     orig = d;
 
-  if (d->getDeclContext()->isExternCContext() && d->getKind() == Decl::Function) {
+  const FunctionDecl * FD = dyn_cast<FunctionDecl>(d);
+  if (FD && (FD->isExternC() || FD->isInExternCContext())) {
     c = d->getDeclName().getAsString();
     if (dups.count(c)) {
       throw mangling_error("Generated symbol conflicts with a C symbol", d, cfg);
