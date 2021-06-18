@@ -285,6 +285,7 @@ void ClassDefineJob::addFields(const clang::CXXRecordDecl *d, const ClassList pa
           // the parent scope, or defined as a part of a field declaration.
           list.sub(f, newParents, name, QT, TD->isUnion());
           addFields(dyn_cast<CXXRecordDecl>(TD), newParents, list.subFields.back());
+          Identifier::ids[RD] = Identifier();
           continue;
         } else {
           // the anonymous struct, union, or enum can be named using this field's name. A dependency
@@ -322,6 +323,7 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
       }
     }
 
+    Identifier fi(f.type, Identifier(f.name, cfg()), cfg());
     if (f.subFields.size()) {
       if (f.isUnion)
         _out.hf() << indent << "union {\n";
@@ -329,10 +331,9 @@ void ClassDefineJob::writeFields(FieldInfo &list, std::string indent,
         _out.hf() << indent << "struct {\n";
       writeFields(f, indent + "  ", f.name.empty() ? names : nullptr);
       _out.hf() << indent << "}";
-      if (f.name.size()) _out.hf() << " " << f.name;
+      if (f.name.size()) _out.hf() << " " << fi.c;
       _out.hf() << ";\n";
     } else {
-      Identifier fi(f.type, Identifier(f.name, cfg()), cfg());
       _out.hf() << indent << fi.c;
       if (f.field && f.field->isBitField()) {
         _out.hf() << " : " << f.field->getBitWidthValue(AC);

@@ -71,7 +71,13 @@ void FunctionJob::impl() {
   }
 
   // Types redefined by unplusplus may conflict with the C++ ones
-  if (extc) _out.hf() << "#ifndef __cplusplus\n";
+  if (extc) {
+    _out.hf() << "#ifndef __cplusplus\n";
+    // carry through windows' dll import attribute
+    if (_d->hasAttr<DLLImportAttr>()) {
+      _out.hf() << "__declspec(dllimport)";
+    }
+  }
 
   QualType qp;
   const auto *method = dyn_cast<CXXMethodDecl>(_d);
