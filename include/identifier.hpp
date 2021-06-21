@@ -96,5 +96,5 @@ std::string getCXXQualifiedName(const clang::PrintingPolicy &PP, const clang::De
 const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);
 
 // Determine if the declaration belongs to the C standard library, and return the header path
-std::string getCSystem(clang::Decl *D);
+std::string getCSystem(const clang::Decl *D);
 }  // namespace unplusplus

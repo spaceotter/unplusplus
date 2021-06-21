@@ -322,7 +322,11 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
     orig = d;
 
   const FunctionDecl * FD = dyn_cast<FunctionDecl>(d);
-  if (FD && (FD->isExternC() || FD->isInExternCContext())) {
+  // The name-mangling is not applied to extern C functions, which are declared with the same name
+  // so users link to the original, or to C system header structs and typedefs which are included
+  // and used directly.
+  if ((FD && (FD->isExternC() || FD->isInExternCContext())) ||
+      getCSystem(d).size()) {
     c = d->getDeclName().getAsString();
     if (dups.count(c)) {
       throw mangling_error("Generated symbol conflicts with a C symbol", d, cfg);
@@ -436,7 +440,7 @@ const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
   return nullptr;
 }
 
-std::string unplusplus::getCSystem(clang::Decl *D) {
+std::string unplusplus::getCSystem(const clang::Decl *D) {
   SourceManager &SM = D->getASTContext().getSourceManager();
   FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
   bool Invalid = false;
