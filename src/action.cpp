@@ -45,6 +45,7 @@ class UppAction : public ASTFrontendAction {
   virtual void ExecuteAction() override {
     ASTFrontendAction::ExecuteAction();
     CompilerInstance &CI = getCompilerInstance();
+    _jm->visitMacros(CI.getPreprocessor());
     _jm->finishTemplates(CI.getSema());
   }
 

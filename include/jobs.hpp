@@ -7,6 +7,7 @@
 
 #include <clang/AST/Decl.h>
 #include <clang/Sema/Sema.h>
+#include <clang/Lex/Preprocessor.h>
 
 #include <list>
 #include <memory>
@@ -150,6 +151,8 @@ class JobManager {
   bool renameFiltered(clang::NamedDecl *D, clang::NamedDecl *New);
 
   bool isRenamed(clang::NamedDecl *D) { return _renamed.count(D); }
+
+  void visitMacros(const clang::Preprocessor &PP);
 
   // Emit fully instantiated template specializations, and any additional specializations that were
   // discovered while emitting the known ones.

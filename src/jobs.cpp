@@ -459,6 +459,17 @@ bool JobManager::renameFiltered(NamedDecl *D, NamedDecl *New) {
   return false;
 }
 
+void JobManager::visitMacros(const Preprocessor &PP) {
+  for (const auto &m : PP.macros()) {
+    const clang::MacroInfo *mi = m.getSecond().getLatest()->getMacroInfo();
+    std::string name(m.getFirst()->getName());
+
+    if (Identifier::dups.count(name)) {
+      std::cerr << "Warning: The macro " << name << " at " << mi->getDefinitionLoc().printToString(PP.getSourceManager()) << " shadows an existing declaration " << cfg().getDebugName(Identifier::dups.at(name)) << std::endl;
+    }
+  }
+}
+
 void JobManager::finishTemplates(clang::Sema &S) {
   while (_templates.size()) {
     if (_templates.size()) {
