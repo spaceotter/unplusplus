@@ -92,3 +92,6 @@ irr::core::array<irr::scene::ISkinnedMesh::SScaleKey, irr::core::irrAllocator<ir
 irr::core::array<irr::scene::ISkinnedMesh::SRotationKey, irr::core::irrAllocator<irr::scene::ISkinnedMesh::SRotationKey>>::operator!=
 irr::core::array<irr::scene::ISkinnedMesh::SWeight, irr::core::irrAllocator<irr::scene::ISkinnedMesh::SWeight>>::operator!=
 irr::core::array<irr::SKeyMap, irr::core::irrAllocator<irr::SKeyMap>>::operator!=
+#deal with some weirdness in irrlicht that it has to deal with some weirdness in the windows standard C library
+snwprintf
+snprintf
