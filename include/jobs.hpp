@@ -6,8 +6,8 @@
 #pragma once
 
 #include <clang/AST/Decl.h>
-#include <clang/Sema/Sema.h>
 #include <clang/Lex/Preprocessor.h>
+#include <clang/Sema/Sema.h>
 
 #include <list>
 #include <memory>

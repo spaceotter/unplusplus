@@ -240,7 +240,7 @@ void ClassDefineJob::findFields() {
 }
 
 // extract a TagDecl which might be in the process of being declared anonymously.
-static const TagDecl * getTagDecl(QualType QT) {
+static const TagDecl *getTagDecl(QualType QT) {
   if (QT->isRecordType()) {
     return QT->getAsRecordDecl();
   } else if (QT->isEnumeralType()) {

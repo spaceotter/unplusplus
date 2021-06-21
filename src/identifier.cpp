@@ -321,7 +321,7 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   else
     orig = d;
 
-  const FunctionDecl * FD = dyn_cast<FunctionDecl>(d);
+  const FunctionDecl *FD = dyn_cast<FunctionDecl>(d);
   // The name-mangling is not applied to extern C functions, which are declared with the same name
   // so users link to the original, or to C system header structs and typedefs which are included
   // and used directly.

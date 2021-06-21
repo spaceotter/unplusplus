@@ -465,7 +465,10 @@ void JobManager::visitMacros(const Preprocessor &PP) {
     std::string name(m.getFirst()->getName());
 
     if (Identifier::dups.count(name)) {
-      std::cerr << "Warning: The macro " << name << " at " << mi->getDefinitionLoc().printToString(PP.getSourceManager()) << " shadows an existing declaration " << cfg().getDebugName(Identifier::dups.at(name)) << std::endl;
+      std::cerr << "Warning: The macro " << name << " at "
+                << mi->getDefinitionLoc().printToString(PP.getSourceManager())
+                << " shadows an existing declaration "
+                << cfg().getDebugName(Identifier::dups.at(name)) << std::endl;
     }
   }
 }
