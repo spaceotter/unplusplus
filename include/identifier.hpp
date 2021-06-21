@@ -72,7 +72,7 @@ struct Identifier {
   // remember old identifiers to save time, they don't change
   static std::unordered_map<const clang::NamedDecl *, Identifier> ids;
   // Remember generated names to rename duplicates
-  static std::unordered_set<std::string> dups;
+  static std::unordered_map<std::string, const clang::NamedDecl *> dups;
 
   Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg);
   Identifier(const clang::QualType &d, const Identifier &name, const IdentifierConfig &cfg);

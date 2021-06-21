@@ -295,7 +295,7 @@ std::string IdentifierConfig::getCName(const QualType &qt, std::string name, boo
 }
 
 std::unordered_map<const clang::NamedDecl *, Identifier> Identifier::ids;
-std::unordered_set<std::string> Identifier::dups;
+std::unordered_map<std::string, const clang::NamedDecl *> Identifier::dups;
 
 Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   if (d == nullptr) {
@@ -325,11 +325,11 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   // The name-mangling is not applied to extern C functions, which are declared with the same name
   // so users link to the original, or to C system header structs and typedefs which are included
   // and used directly.
-  if ((FD && (FD->isExternC() || FD->isInExternCContext())) ||
+  if ((FD && (FD->isExternC() || FD->isInExternCContext()) && !FD->isCXXClassMember()) ||
       getCSystem(d).size()) {
     c = d->getDeclName().getAsString();
     if (dups.count(c)) {
-      throw mangling_error("Generated symbol conflicts with a C symbol", d, cfg);
+      throw mangling_error("Generated symbol conflicts with a C symbol", dups.at(c), cfg);
     }
   } else {
     c = cfg.getCName(d);
@@ -339,11 +339,11 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
       while (dups.count(nc = c + "_" + std::to_string(cnt))) cnt++;
       c = nc;
     }
-    dups.emplace(c);
   }
 
   cpp = cfg.getCXXQualifiedName(d);
 
+  dups.emplace(c, d);
   ids.emplace(std::make_pair(orig, *this));
 }
 

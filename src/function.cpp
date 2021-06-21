@@ -75,7 +75,7 @@ void FunctionJob::impl() {
     _out.hf() << "#ifndef __cplusplus\n";
     // carry through windows' dll import attribute
     if (_d->hasAttr<DLLImportAttr>()) {
-      _out.hf() << "__declspec(dllimport)";
+      _out.hf() << "__declspec(dllimport) ";
     }
   }
 
