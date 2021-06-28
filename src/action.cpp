@@ -52,7 +52,7 @@ class UppAction : public ASTFrontendAction {
  protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef InFile) override {
     _jm = std::make_unique<JobManager>(_out, CI.getASTContext(), _fc);
-    return std::make_unique<UppASTConsumer>(*_jm, getCompilerInstance());
+    return std::make_unique<UppASTConsumer>(*_jm, CI);
   }
 };
 

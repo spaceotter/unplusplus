@@ -9,7 +9,9 @@ using namespace clang;
 using namespace unplusplus;
 
 bool FunctionJob::accept(const type *D) {
-  return !D->isTemplated() && !D->isDeleted() && !D->isDeletedAsWritten();
+  bool extc = D->isExternC() || D->isInExternCContext();
+  return !D->isTemplated() && !D->isDeleted() && !D->isDeletedAsWritten() &&
+         (extc || !D->isVariadic());
 }
 
 FunctionJob::FunctionJob(FunctionJob::type *D, clang::Sema &S, JobManager &jm)
@@ -118,6 +120,9 @@ void FunctionJob::impl() {
     proto << pi.c;
     call << pn.c;
     firstC = firstP = false;
+  }
+  if (_d->isVariadic()) {
+    proto << " ...";
   }
   proto << ")";
   Identifier signature(_returnType, Identifier(proto.str()), cfg());

@@ -9,8 +9,10 @@ function interface (FFI) to use a C++ library.
 1. Build the target C++ library.
 2. Create a header with all the desired parts of the target library included.
 3. Run unplusplus on that header to generate the C++ to C interface, along with all the compiler options that were used on the library.
-4. Build the generated stubs with the C++ compiler.
-5. Build the C code that uses the generated header with the C compiler.
+4. If you encounter problems, see the Limitations section.
+5. Build the generated stubs with the C++ compiler.
+6. Build the C code that uses the generated header with the C compiler.
+7. Link the C++ stub library and the C object file with the C++ linker.
 
 It is recommended to use the clang to compile the project, whose libclang unplusplus was built with,
 to avoid issues with system header or ABI incompatibility.
@@ -71,7 +73,14 @@ The project is not ready for general use yet.
 * Templates are normally evaluated in a lazy fashion. This means that methods are not instantiated
   unless they are used, which can result in hidden bugs in libraries where the template's method is
   incompatible with some template arguments. These can be surfaced by unplusplus because it
-  explicitly uses every single member of every template specialization that it can find.
+  explicitly uses every single member of every template specialization that it can find. To resolve
+  this: create an excludes file that lists the broken template methods and pass it to unplusplus.
+* unplusplus tries to emit include directives for C standard library headers, and omit the
+  declarations in them for brevity. Unfortunately, there doesn't seem to be a reliable way to tell
+  *which* headers are the C standard library other than listing them all tediously.
+* unplusplus can't handle [variadic functions](https://en.cppreference.com/w/cpp/utility/variadic)
+  with C++ linkage, since it [isn't possible](http://c-faq.com/varargs/handoff.html) to forward the
+  va_list to a variadic function.
 
 ## Development
 
