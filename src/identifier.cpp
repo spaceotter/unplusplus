@@ -266,7 +266,7 @@ std::string IdentifierConfig::getCName(const QualType &qt, std::string name, boo
     TagDecl *TD = tt->getDecl();
     c = Identifier(TD, *this).c;
     if (!root) c = c.substr(_root.size());
-    if (TD->isStruct() && getName(TD).size() && getCSystem(TD).size()) c = "struct " + c;
+    if (TD->isStruct() && getName(TD).size() && _df.isCHeader(TD)) c = "struct " + c;
     c += sname;
   } else if (const auto *pt = dyn_cast<PointerType>(t)) {
     c = getCName(pt->getPointeeType(), "*" + name);
@@ -326,7 +326,7 @@ Identifier::Identifier(const clang::NamedDecl *d, const IdentifierConfig &cfg) {
   // so users link to the original, or to C system header structs and typedefs which are included
   // and used directly.
   if ((FD && (FD->isExternC() || FD->isInExternCContext()) && !FD->isCXXClassMember()) ||
-      getCSystem(d).size()) {
+      cfg._df.isCHeader(d)) {
     c = d->getDeclName().getAsString();
     if (dups.count(c)) {
       throw mangling_error("Generated symbol conflicts with a C symbol", dups.at(c), cfg);
@@ -351,11 +351,11 @@ Identifier::Identifier(const QualType &qt, const Identifier &name, const Identif
   c = cfg.getCName(qt, name.c);
   std::string s;
   llvm::raw_string_ostream ss(s);
-  QualType desugar = qt.getDesugaredType(cfg.astc);
-  if (desugar->isNullPtrType())
+  QualType canon = qt.getCanonicalType();
+  if (canon->isNullPtrType())
     ss << "std::nullptr_t " << name.cpp;
   else
-    desugar.print(ss, cfg.PP, name.cpp);
+    canon.print(ss, cfg.PP, name.cpp);
   ss.flush();
   cpp = ss.str();
 }
@@ -438,16 +438,4 @@ const TypedefDecl *unplusplus::getAnonTypedef(const NamedDecl *d) {
     }
   }
   return nullptr;
-}
-
-std::string unplusplus::getCSystem(const clang::Decl *D) {
-  SourceManager &SM = D->getASTContext().getSourceManager();
-  FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
-  bool Invalid = false;
-  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
-  SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
-  if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem)
-    return SEntry.getFile().getName().str();
-  else
-    return "";
 }

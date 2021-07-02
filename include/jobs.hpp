@@ -104,8 +104,8 @@ class VarJob : public Job<clang::VarDecl> {
 
 class JobManager {
   Outputs &_out;
-  IdentifierConfig _cfg;
   DeclFilter _filter;
+  IdentifierConfig _cfg;
   std::unordered_set<clang::Decl *> _decls;
   std::unordered_set<clang::Decl *> _renamed;
   std::vector<std::unique_ptr<JobBase>> _jobs;
@@ -117,7 +117,7 @@ class JobManager {
 
  public:
   JobManager(Outputs &out, const clang::ASTContext &_astc, DeclFilterConfig &FC)
-      : _out(out), _cfg(_astc), _filter(_cfg.PP, FC) {}
+      : _out(out), _filter(_astc.getLangOpts(), FC), _cfg(_astc.getLangOpts(), _filter) {}
   ~JobManager();
 
   Outputs &out() { return _out; }

@@ -6,6 +6,7 @@
 #include "filter.hpp"
 
 #include <clang/AST/DeclTemplate.h>
+#include <clang/Basic/SourceManager.h>
 
 #include <fstream>
 
@@ -117,7 +118,16 @@ bool unplusplus::traverse(const Decl *D, std::function<bool(const clang::Decl *)
   }
 }
 
-DeclFilter::DeclFilter(const clang::PrintingPolicy &PP, DeclFilterConfig &FC) : _conf(FC), _pp(PP) {
+std::string unplusplus::getDeclHeader(const clang::Decl *D) {
+  SourceManager &SM = D->getASTContext().getSourceManager();
+  FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
+  bool Invalid = false;
+  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
+  return SEntry.getFile().getName().str();
+}
+
+DeclFilter::DeclFilter(const clang::LangOptions &LO, DeclFilterConfig &FC) : _conf(FC), _pp(LO) {
+  _pp.PrintCanonicalTypes = 1;
   if (!_conf.exclusion_file.empty()) {
     std::ifstream ifs(_conf.exclusion_file);
     std::string line;
@@ -125,8 +135,16 @@ DeclFilter::DeclFilter(const clang::PrintingPolicy &PP, DeclFilterConfig &FC) : 
       if (line.size() && line[0] != '#') _excluded.emplace(line);
     }
   }
-  for (auto &d : FC.exclude_decls) {
+  for (auto &d : _conf.exclude_decls) {
     _excluded.emplace(d);
+  }
+
+  for (auto &p : _conf.cheader_files) {
+    std::ifstream ifs(p);
+    std::string line;
+    while (std::getline(ifs, line)) {
+      if (line.size() && line[0] != '#') _headerPatterns.push_back(line);
+    }
   }
 }
 
@@ -165,4 +183,40 @@ void DeclFilter::sanitizeType(QualType &QT, const ASTContext &AC) {
       QT = AC.getPointerType(pointee);
     }
   }
+}
+
+bool DeclFilter::matchHeader(std::string &S) {
+  for (auto &p : _headerPatterns) {
+    if (S.find(p) == S.size() - p.size()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DeclFilter::isCHeader(const clang::Decl *D) {
+  if (D == nullptr) return false;
+  if (_cheaderd.count(D)) {
+    return _cheaderd.at(D);
+  }
+  SourceManager &SM = D->getASTContext().getSourceManager();
+  FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
+  bool Invalid = false;
+  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
+  std::string header = SEntry.getFile().getName().str();
+  if (_cheader.count(header)) {
+    _cheaderd[D] = _cheader.at(header);
+    return _cheader.at(header);
+  }
+  SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
+  if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem) {
+    _cheaderd[D] = true;
+    _cheader[header] = true;
+    return true;
+  }
+
+  bool match = matchHeader(header);
+  _cheaderd[D] = match;
+  _cheader[header] = match;
+  return match;
 }

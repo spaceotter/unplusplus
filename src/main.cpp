@@ -45,6 +45,9 @@ int main(int argc, const char **argv) {
   if (!ExcludesFile.empty()) {
     FC.exclusion_file = path(ExcludesFile.getValue());
   }
+  for (auto &s : CHeadersFiles) {
+    FC.cheader_files.push_back(path(s));
+  }
   FC.exclude_decls = ExcludeDecl;
   FC.no_deprecated = NoDeprecated;
   std::cout << "Writing library to: " << stem.string() << ".*" << std::endl;

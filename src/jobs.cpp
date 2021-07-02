@@ -289,9 +289,8 @@ void JobManager::create(Decl *D, clang::Sema &S) {
   _decls.emplace(D);
 
   // Test if from a C header that can just be included by the library
-  std::string csystemh = getCSystem(D);
-  if (csystemh.size()) {
-    _out.addCHeader(csystemh);
+  if (_filter.isCHeader(D)) {
+    _out.addCHeader(getDeclHeader(D));
     // Create a dummy for jobs needing this type to depend on
     if (isa<TypeDecl>(D)) {
       declare(D, nullptr);

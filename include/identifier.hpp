@@ -13,12 +13,15 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "filter.hpp"
+
 namespace unplusplus {
 // This class stores the settings for C name generation from C++ things.
 struct IdentifierConfig {
-  IdentifierConfig(const clang::ASTContext &astc) : astc(astc), PP(astc.getLangOpts()) {
+  IdentifierConfig(const clang::LangOptions &LO, DeclFilter &DF) : PP(LO), _df(DF) {
     PP.PrintCanonicalTypes = 1;
   }
+
   // these determine how flattened C names are assembled
   std::string _root = "upp_";
   std::string c_separator = "_";
@@ -28,10 +31,9 @@ struct IdentifierConfig {
   std::string _enum = "_e_";
   std::string _dtor = "del_";
   std::string _ctor = "new_";
-  // this is needed for "desugaring" and constructing derived types
-  const clang::ASTContext &astc;
   // this is needed for clang to print things correctly, like bool
   clang::PrintingPolicy PP;
+  DeclFilter &_df;
 
   // remove illegal characters
   std::string sanitize(const std::string &name) const;
@@ -95,6 +97,4 @@ std::string getCXXQualifiedName(const clang::PrintingPolicy &PP, const clang::De
 // If the NamedDecl is an anonymous struct or enum, get the typedef that is giving it a name.
 const clang::TypedefDecl *getAnonTypedef(const clang::NamedDecl *d);
 
-// Determine if the declaration belongs to the C standard library, and return the header path
-std::string getCSystem(const clang::Decl *D);
 }  // namespace unplusplus

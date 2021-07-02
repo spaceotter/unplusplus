@@ -1,6 +1,8 @@
 if (NOT add_unplusplus_clib)
     function(add_unplusplus_clib header_file cxx_library)
         cmake_path(ABSOLUTE_PATH header_file NORMALIZE)
+        get_target_property(UNPLUSPLUS_DIR unplusplus SOURCE_DIR)
+        set(STDC_LIST_FILE "${UNPLUSPLUS_DIR}/cmake/stdc.txt")
         get_filename_component(clib_name "${cxx_library}" NAME_WE)
         if (clib_name MATCHES "^lib.*")
             string(SUBSTRING "${clib_name}" 3 -1 clib_name)
@@ -24,9 +26,10 @@ if (NOT add_unplusplus_clib)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.h"
             "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.cpp"
             COMMAND "${UNPLUSPLUS_EXECUTABLE}"
-            -o "${clib_name}" "${header_file}" "--extra-arg-before=-xc++-header" ${ARGN}
+            -o "${clib_name}" "${header_file}" "--extra-arg-before=-xc++-header"
+            "--cheaders-file" "${STDC_LIST_FILE}" ${ARGN}
             MAIN_DEPENDENCY "${header_file}"
-            DEPENDS unplusplus "${excludes_file_name}")
+            DEPENDS unplusplus "${excludes_file_name}" "${STDC_LIST_FILE}")
         add_library("${clib_name}" "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.cpp")
         target_include_directories("${clib_name}" PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
         target_link_libraries("${clib_name}" "${cxx_library}")
