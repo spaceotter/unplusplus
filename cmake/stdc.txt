@@ -8,7 +8,9 @@ inttypes.h
 iso646.h
 limits.h
 locale.h
+malloc.h
 math.h
+memory.h
 setjmp.h
 signal.h
 stdalign.h
@@ -18,12 +20,16 @@ stdbool.h
 stddef.h
 stdint.h
 stdio.h
+stdio_s.h
 stdlib.h
+stdlib_s.h
 stdnoreturn.h
 string.h
+string_s.h
 tgmath.h
 threads.h
 time.h
 uchar.h
 wchar.h
+wchar_s.h
 wctype.h
