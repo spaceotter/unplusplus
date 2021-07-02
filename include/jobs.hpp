@@ -44,6 +44,7 @@ class JobBase {
 
  public:
   JobBase(JobManager &manager, clang::Sema &S);
+  virtual ~JobBase() = default;
   IdentifierConfig &cfg();
   JobManager &manager() { return _manager; }
   bool isDone() const { return _done; }

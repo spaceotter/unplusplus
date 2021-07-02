@@ -64,17 +64,9 @@ void FileOutputs::addCHeader(const std::string &path) {
   for (auto &h : _exclude_headers) {
     if (path.size() >= h.size() && path.substr(path.size() - h.size()) == h) use = false;
   }
-  if (use) _cheaders.emplace(path);
-}
-
-void FileOutputs::finalize() {
-  if (!_cheaders.empty()) {
-    _hf << "// These C system headers were used by the C++ library\n";
-    _hf << "#ifndef __cplusplus\n";
-    for (const auto &p : _cheaders) {
-      _hf << "#include \"" << p << "\"\n";
-    }
-    _hf << "#endif // __cplusplus\n\n";
+  if (use) {
+    _hf << "#include \"" << path << "\"\n\n";
+    _cheaders.emplace(path);
   }
 }
 

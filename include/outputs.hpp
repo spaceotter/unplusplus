@@ -36,7 +36,6 @@ class FileOutputs : public Outputs {
   ~FileOutputs();
   std::ostream &hf() override { return _hf; };
   std::ostream &sf() override { return _sf; };
-  void finalize();
   void addCHeader(const std::string &path) override;
 };
 

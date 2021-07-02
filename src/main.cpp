@@ -52,9 +52,7 @@ int main(int argc, const char **argv) {
   FC.no_deprecated = NoDeprecated;
   std::cout << "Writing library to: " << stem.string() << ".*" << std::endl;
   FileOutputs fout(stem, sources);
-  SubOutputs temp(fout);
-  UppActionFactory Factory(temp, FC);
+  UppActionFactory Factory(fout, FC);
   int ret = Tool.run(&Factory);
-  fout.finalize();
   return ret;
 }
