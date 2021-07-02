@@ -122,7 +122,7 @@ void FunctionJob::impl() {
     firstC = firstP = false;
   }
   if (_d->isVariadic()) {
-    proto << " ...";
+    proto << ", ...";
   }
   proto << ")";
   Identifier signature(_returnType, Identifier(proto.str()), cfg());
