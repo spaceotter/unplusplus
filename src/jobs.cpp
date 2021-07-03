@@ -156,6 +156,8 @@ TypedefJob::TypedefJob(TypedefJob::type *D, Sema &S, JobManager &manage)
       else
         _keyword = "struct";
     }
+  } else {
+    depends(QT, false);
   }
   checkReady();
 }
