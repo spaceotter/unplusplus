@@ -6,10 +6,12 @@ usage of C++ features from C, as described below. The expected use case is to al
 function interface (FFI) to use a C++ library.
 
 ## Workflow:
-1. Build the target C++ library.
-2. Create a header with all the desired parts of the target library included.
-3. Run unplusplus on that header to generate the C++ to C interface, along with all the compiler options that were used on the library.
-4. If you encounter problems, see the Limitations section.
+1. Build the target C++ libraries.
+2. Create a header with all the desired parts of the target libraries included.
+3. Run unplusplus on that header to generate the C++ to C interface, along with all the compiler
+   options that were used on the library.
+4. If you encounter problems, see the Limitations section. You may need to create a file that
+   specifies declarations to leave out.
 5. Build the generated stubs with the C++ compiler.
 6. Build the C code that uses the generated header with the C compiler.
 7. Link the C++ stub library and the C object file with the C++ linker.
@@ -22,6 +24,7 @@ to avoid issues with system header or ABI incompatibility.
 * If the C++ code includes headers that are known to be C system headers, all the symbols are
   skipped and that header is included.
 * `extern "C"` symbols will be declared, but not defined.
+* Variadic functions will be ignored unless they have C linkage.
 * Namespaces and templates are collapsed according to a name-mangling system. For instance,
   `A::foo<int>` becomes `upp_A_foo_int`
 * It will try to fully instantiate template specializations that were hinted at in the supplied
@@ -62,6 +65,12 @@ template's typedefs for the iterator get used instead.
 You can also filter out "deprecated" declarations (created with `__attribute__((deprecated))` for
 instance) with the option `--no-deprecated`.
 
+Declarations that are known to be in C language files will be excluded and replaced with an include
+directive for that file. Since it's common for C and C++ headers to exist in the system include
+directory with the same `*.h` extension, you can manually specify which files are C with the
+`--cheaders-file` option. The argument should be a file where each line matches the end of the file
+path to be considered C.
+
 ## Limitations
 
 The project is not ready for general use yet.
@@ -74,7 +83,8 @@ The project is not ready for general use yet.
   unless they are used, which can result in hidden bugs in libraries where the template's method is
   incompatible with some template arguments. These can be surfaced by unplusplus because it
   explicitly uses every single member of every template specialization that it can find. To resolve
-  this: create an excludes file that lists the broken template methods and pass it to unplusplus.
+  this: create an excludes file that lists the broken template methods and pass it to unplusplus
+  with the `--excludes-file` option.
 * unplusplus tries to emit include directives for C standard library headers, and omit the
   declarations in them for brevity. Unfortunately, there doesn't seem to be a reliable way to tell
   *which* headers are the C standard library other than listing them all tediously.
