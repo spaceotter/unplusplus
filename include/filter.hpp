@@ -72,6 +72,6 @@ class DeclFilter {
   bool matchHeader(std::string &S);
   bool isCHeader(const clang::Decl *D);
 
-  const clang::PrintingPolicy &PP() {return _pp;}
+  const clang::PrintingPolicy &PP() { return _pp; }
 };
 }  // namespace unplusplus

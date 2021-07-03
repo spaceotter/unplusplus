@@ -15,8 +15,9 @@ cl::opt<std::string> OutStem("o", cl::desc("Output files base name"), cl::Option
 cl::opt<std::string> ExcludesFile("excludes-file", cl::desc("File of declarations to exclude"),
                                   cl::Optional, cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
 
-cl::list<std::string> CHeadersFiles("cheaders-file", cl::desc("File listing which headers are in C"),
-                                  cl::ZeroOrMore, cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
+cl::list<std::string> CHeadersFiles("cheaders-file",
+                                    cl::desc("File listing which headers are in C"), cl::ZeroOrMore,
+                                    cl::cat(UppCategory), cl::sub(*cl::AllSubCommands));
 
 cl::list<std::string> ExcludeDecl("e", cl::desc("Exclude the fully qualified declaration"),
                                   cl::ZeroOrMore, cl::cat(UppCategory),
