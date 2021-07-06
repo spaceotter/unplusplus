@@ -92,6 +92,23 @@ irr::core::array<irr::scene::ISkinnedMesh::SScaleKey, irr::core::irrAllocator<ir
 irr::core::array<irr::scene::ISkinnedMesh::SRotationKey, irr::core::irrAllocator<irr::scene::ISkinnedMesh::SRotationKey>>::operator!=
 irr::core::array<irr::scene::ISkinnedMesh::SWeight, irr::core::irrAllocator<irr::scene::ISkinnedMesh::SWeight>>::operator!=
 irr::core::array<irr::SKeyMap, irr::core::irrAllocator<irr::SKeyMap>>::operator!=
+# troublemakers from the minetest version of irrlicht
+irr::core::array<irr::video::SOverrideMaterial::SMaterialTypeReplacement, irr::core::irrAllocator<irr::video::SOverrideMaterial::SMaterialTypeReplacement>>::operator==
+irr::core::array<irr::video::SOverrideMaterial::SMaterialTypeReplacement, irr::core::irrAllocator<irr::video::SOverrideMaterial::SMaterialTypeReplacement>>::operator!=
+irr::core::array<irr::video::SOverrideMaterial::SMaterialTypeReplacement, irr::core::irrAllocator<irr::video::SOverrideMaterial::SMaterialTypeReplacement>>::sort
+irr::core::array<irr::video::SOverrideMaterial::SMaterialTypeReplacement, irr::core::irrAllocator<irr::video::SOverrideMaterial::SMaterialTypeReplacement>>::binary_search
+irr::core::array<irr::video::SOverrideMaterial::SMaterialTypeReplacement, irr::core::irrAllocator<irr::video::SOverrideMaterial::SMaterialTypeReplacement>>::binary_search_multi
+irr::core::array<irr::video::SOverrideMaterial::SMaterialTypeReplacement, irr::core::irrAllocator<irr::video::SOverrideMaterial::SMaterialTypeReplacement>>::linear_search
+irr::core::array<irr::video::SOverrideMaterial::SMaterialTypeReplacement, irr::core::irrAllocator<irr::video::SOverrideMaterial::SMaterialTypeReplacement>>::linear_reverse_search
+irr::core::array<irr::scene::SCollisionTriangleRange, irr::core::irrAllocator<irr::scene::SCollisionTriangleRange>>::operator==
+irr::core::array<irr::scene::SCollisionTriangleRange, irr::core::irrAllocator<irr::scene::SCollisionTriangleRange>>::operator!=
+irr::core::array<irr::scene::SCollisionTriangleRange, irr::core::irrAllocator<irr::scene::SCollisionTriangleRange>>::sort
+irr::core::array<irr::scene::SCollisionTriangleRange, irr::core::irrAllocator<irr::scene::SCollisionTriangleRange>>::binary_search
+irr::core::array<irr::scene::SCollisionTriangleRange, irr::core::irrAllocator<irr::scene::SCollisionTriangleRange>>::binary_search_multi
+irr::core::array<irr::scene::SCollisionTriangleRange, irr::core::irrAllocator<irr::scene::SCollisionTriangleRange>>::linear_search
+irr::core::array<irr::scene::SCollisionTriangleRange, irr::core::irrAllocator<irr::scene::SCollisionTriangleRange>>::linear_reverse_search
+irr::core::array<irr::SProfileData, irr::core::irrAllocator<irr::SProfileData>>::operator==
+irr::core::array<irr::SProfileData, irr::core::irrAllocator<irr::SProfileData>>::operator!=
 # comments ask you not to use these internal functions
 irr::io::createReadFile
 irr::io::createLimitReadFile

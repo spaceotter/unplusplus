@@ -33,5 +33,8 @@ if (NOT add_unplusplus_clib)
         add_library("${clib_name}" "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.cpp")
         target_include_directories("${clib_name}" PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
         target_link_libraries("${clib_name}" "${cxx_library}")
+
+        set(${clib_name}_HEADERS "${CMAKE_CURRENT_BINARY_DIR}" PARENT_SCOPE)
+        set(${clib_name}_JSON "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.json" PARENT_SCOPE)
     endfunction()
 endif()
