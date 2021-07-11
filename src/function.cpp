@@ -93,18 +93,37 @@ void FunctionJob::impl() {
   std::stringstream proto;
   std::stringstream call;
   Identifier i(_d, cfg());
+
+  Json::Value j(Json::ValueType::objectValue);
+  j[jcfg()._cname] = i.c;
+  j[jcfg()._qname] = jcfg().jsonQName(_d);
+  j[jcfg()._location] = _location;
+  j[jcfg()._variadic] = _d->isVariadic();
+  j[jcfg()._return] = jcfg().jsonType(_returnType);
+
+  Json::Value args(Json::ValueType::arrayValue);
+
   proto << i.c << "(";
   bool firstP = true;
   if (_returnParam) {
     proto << Identifier(_returnParamType, Identifier(cfg()._return, cfg()), cfg()).c;
     firstP = false;
+
+    Json::Value arg(Json::ValueType::objectValue);
+    arg[jcfg()._cname] = cfg()._return;
+    arg[jcfg()._fieldType] = jcfg().jsonType(_returnParamType);
+    args.append(arg);
   }
   if (method && !ctor) {
     if (!firstP) proto << ", ";
-    proto << Identifier(_d->getASTContext().getPointerType(qp), Identifier(cfg()._this, cfg()),
-                        cfg())
-                 .c;
+    QualType thisType = _d->getASTContext().getPointerType(qp);
+    proto << Identifier(thisType, Identifier(cfg()._this, cfg()), cfg()).c;
     firstP = false;
+
+    Json::Value arg(Json::ValueType::objectValue);
+    arg[jcfg()._cname] = cfg()._this;
+    arg[jcfg()._fieldType] = jcfg().jsonType(thisType);
+    args.append(arg);
   }
   bool firstC = true;
   for (size_t i = 0; i < _d->getNumParams(); i++) {
@@ -120,7 +139,13 @@ void FunctionJob::impl() {
     proto << pi.c;
     call << pn.c;
     firstC = firstP = false;
+
+    Json::Value arg(Json::ValueType::objectValue);
+    arg[jcfg()._cname] = pn.c;
+    arg[jcfg()._fieldType] = jcfg().jsonType(pt);
+    args.append(arg);
   }
+  j[jcfg()._args] = args;
   if (_d->isVariadic()) {
     proto << ", ...";
   }
@@ -163,4 +188,6 @@ void FunctionJob::impl() {
     }
     _out.sf() << ";\n}\n\n";
   }
+
+  _out.json()[jcfg()._function][i.cpp] = j;
 }

@@ -17,6 +17,7 @@ JsonConfig::JsonConfig(const IdentifierConfig &IC, const ASTContext &AC, Outputs
     : _icfg(IC), _ac(AC) {
   Json::Value &root = Out.json();
   root[_class] = Json::Value(Json::ValueType::objectValue);
+  root[_function] = Json::Value(Json::ValueType::objectValue);
 }
 
 Json::Value JsonConfig::jsonType(const QualType &QT) {
@@ -41,6 +42,7 @@ Json::Value JsonConfig::jsonType(const QualType &QT) {
       args.append(jsonType(ST->getParamType(i)));
     }
     v[_args] = args;
+    v[_variadic] = ST->isVariadic();
   }
   return v;
 }

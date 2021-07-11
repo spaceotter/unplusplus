@@ -25,6 +25,7 @@ if (NOT add_unplusplus_clib)
 
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.h"
             "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.cpp"
+            "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.json"
             COMMAND "${UNPLUSPLUS_EXECUTABLE}"
             -o "${clib_name}" "${header_file}" "--extra-arg-before=-xc++-header"
             "--cheaders-file" "${STDC_LIST_FILE}" ${ARGN}

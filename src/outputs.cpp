@@ -60,6 +60,13 @@ FileOutputs::~FileOutputs() {
   _hf << "} // extern \"C\"\n";
   _hf << "#endif // __cplusplus\n";
   _hf << "#endif // " << _macroname << "_CIFGEN_H\n";
+
+  Json::StreamWriterBuilder wbuilder;
+  wbuilder["indentation"] = " ";
+  std::unique_ptr<Json::StreamWriter> writer{wbuilder.newStreamWriter()};
+  std::ofstream ofjson(_outjson);
+  writer->write(_json, &ofjson);
+  ofjson << std::endl;
 }
 
 void FileOutputs::addCHeader(const std::string &path) {
@@ -72,13 +79,6 @@ void FileOutputs::addCHeader(const std::string &path) {
     _hf << "#include \"" << path << "\"\n\n";
     _cheaders.emplace(path);
   }
-
-  Json::StreamWriterBuilder wbuilder;
-  wbuilder["indentation"] = " ";
-  std::unique_ptr<Json::StreamWriter> writer{wbuilder.newStreamWriter()};
-  std::ofstream ofjson(_outjson);
-  writer->write(_json, &ofjson);
-  ofjson << std::endl;
 }
 
 SubOutputs::~SubOutputs() {
