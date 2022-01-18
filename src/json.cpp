@@ -62,7 +62,7 @@ Json::Value JsonConfig::jsonQName(const Decl *D) {
           default:
             std::string Buf;
             llvm::raw_string_ostream ArgOS(Buf);
-            Arg.print(_icfg.PP, ArgOS);
+            Arg.print(_icfg.PP, ArgOS, true);
             ArgOS.flush();
             t.append(ArgOS.str());
             break;

@@ -117,7 +117,7 @@ void IdentifierConfig::printCTemplateArg(std::ostream &os, const TemplateArgumen
     default:
       std::string Buf;
       llvm::raw_string_ostream ArgOS(Buf);
-      Arg.print(PP, ArgOS);
+      Arg.print(PP, ArgOS, true);
       ArgOS.flush();
       os << ArgOS.str();
       break;
@@ -273,8 +273,10 @@ std::string IdentifierConfig::getCName(const QualType &qt, std::string name, boo
   } else if (const auto *pt = dyn_cast<ReferenceType>(t)) {
     c = getCName(pt->getPointeeType(), name);
   } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
-    std::string s = "[" + pt->getSize().toString(10, false) + "]";
-    c = getCName(pt->getElementType(), "(" + name + ")" + s);
+    SmallString<8> s;
+    pt->getSize().toString(s, 10, false, true);
+    auto newName = "(" + StringRef(name) + ")[" + s + "]";
+    c = getCName(pt->getElementType(), newName.str());
   } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
     std::stringstream ss;
     bool first = true;

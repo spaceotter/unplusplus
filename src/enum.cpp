@@ -61,7 +61,9 @@ void EnumJob::impl() {
       Identifier entry(e, cfg());
       Identifier entryt(_d->getIntegerType(), Identifier(), cfg());
       _out.hf() << "#define " << entry.c << " ((" << entryt.c << ")";
-      _out.hf() << e->getInitVal().toString(10) << ")\n";
+      SmallString<8> s;
+      e->getInitVal().toString(s, 10, e->getInitVal().isSigned(), true);
+      _out.hf() << s.c_str() << ")\n";
     }
     if (!i.c.empty()) {
       Identifier ii(_d->getIntegerType(), Identifier(i.c, cfg()), cfg());
@@ -74,7 +76,9 @@ void EnumJob::impl() {
     for (const auto *e : _d->enumerators()) {
       Identifier entry(e, cfg());
       _out.hf() << "  " << entry.c << " = ";
-      _out.hf() << e->getInitVal().toString(10) << ",\n";
+      SmallString<8> s;
+      e->getInitVal().toString(s, 10, e->getInitVal().isSigned(), true);
+      _out.hf() << s.c_str() << ",\n";
     }
     _out.hf() << "}";
     if (!i.c.empty()) _out.hf() << " " << i.c;

@@ -3,13 +3,7 @@ project(unplusplus)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-find_package(LLVM 12.0.0 CONFIG)
-if(NOT LLVM_FOUND)
-    find_package(LLVM 11.1.0 CONFIG)
-endif()
-if(NOT LLVM_FOUND)
-    find_package(LLVM 11.0.0 REQUIRED CONFIG)
-endif()
+find_package(LLVM 13.0.0 REQUIRED CONFIG)
 
 include(FindPkgConfig)
 pkg_check_modules(jsoncpp REQUIRED IMPORTED_TARGET jsoncpp)

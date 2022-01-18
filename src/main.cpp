@@ -6,6 +6,8 @@
 #include <clang/Tooling/CommonOptionsParser.h>
 #include <clang/Tooling/Tooling.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/raw_os_ostream.h>
 
 #include <filesystem>
 #include <fstream>
@@ -31,7 +33,13 @@ int main(int argc, const char **argv) {
   args.push_back("clang++");
   args.push_back("-c");
   int size = args.size();
-  tooling::CommonOptionsParser OptionsParser(size, args.data(), UppCategory);
+  //tooling::CommonOptionsParser OptionsParser(size, args.data(), UppCategory);
+  auto e = tooling::CommonOptionsParser::create(size, args.data(), UppCategory);
+  if (!e) {
+    raw_os_ostream(std::cerr) << e.takeError();
+    return -1;
+  }
+  tooling::CommonOptionsParser &OptionsParser = *e;
   std::vector<std::string> sources = OptionsParser.getSourcePathList();
   tooling::ClangTool Tool(OptionsParser.getCompilations(), sources);
   path stem;
