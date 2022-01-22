@@ -20,12 +20,11 @@ function(add_unplusplus_clib name)
         message(FATAL_ERROR "No library supplied for ${name}")
     endif()
 
-    message("Building C Wrapper: ${name} for ${upp_clib_LIBRARY}")
+    message(STATUS "Building C Wrapper: ${name} for ${upp_clib_LIBRARY}")
 
     set(upp_args "--extra-arg-before=-xc++-header")
     if(DEFINED upp_clib_EXCLUDES_FILE)
         cmake_path(ABSOLUTE_PATH upp_clib_EXCLUDES_FILE NORMALIZE)
-        message("  excludes file: ${upp_clib_EXCLUDES_FILE}")
         list(APPEND upp_args "--excludes-file")
         list(APPEND upp_args "${upp_clib_EXCLUDES_FILE}")
     endif()
