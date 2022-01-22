@@ -275,8 +275,8 @@ std::string IdentifierConfig::getCName(const QualType &qt, std::string name, boo
   } else if (const auto *pt = dyn_cast<ConstantArrayType>(t)) {
     SmallString<8> s;
     pt->getSize().toString(s, 10, false, true);
-    auto newName = "(" + StringRef(name) + ")[" + s + "]";
-    c = getCName(pt->getElementType(), newName.str());
+    auto newName = "(" + name + ")[" + s.c_str() + "]";
+    c = getCName(pt->getElementType(), newName);
   } else if (const auto *pt = dyn_cast<FunctionProtoType>(t)) {
     std::stringstream ss;
     bool first = true;
