@@ -15,6 +15,13 @@
 using namespace unplusplus;
 using namespace clang;
 
+static const std::vector<std::string> C_STD_HEADERS = {
+    "assert.h", "complex.h",  "ctype.h",  "errno.h",     "fenv.h",        "float.h",   "inttypes.h",
+    "iso646.h", "limits.h",   "locale.h", "malloc.h",    "math.h",        "memory.h",  "setjmp.h",
+    "signal.h", "stdalign.h", "stdarg.h", "stdatomic.h", "stdbool.h",     "stddef.h",  "stdint.h",
+    "stdio.h",  "stdio_s.h",  "stdlib.h", "stdlib_s.h",  "stdnoreturn.h", "string.h",  "string_s.h",
+    "tgmath.h", "threads.h",  "time.h",   "uchar.h",     "wchar.h",       "wchar_s.h", "wctype.h"};
+
 static bool isInaccessibleP(const Decl *D) {
   if (D)
     return (D->getAccess() == AccessSpecifier::AS_protected ||
@@ -137,6 +144,10 @@ DeclFilter::DeclFilter(const clang::LangOptions &LO, DeclFilterConfig &FC) : _co
   }
   for (auto &d : _conf.exclude_decls) {
     _excluded.emplace(d);
+  }
+
+  for (const auto &h : C_STD_HEADERS) {
+    _headerPatterns.push_back(h);
   }
 
   for (auto &p : _conf.cheader_files) {

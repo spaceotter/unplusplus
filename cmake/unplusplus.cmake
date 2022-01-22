@@ -1,41 +1,54 @@
-if (NOT add_unplusplus_clib)
-    function(add_unplusplus_clib header_file cxx_library)
-        cmake_path(ABSOLUTE_PATH header_file NORMALIZE)
-        get_target_property(UNPLUSPLUS_DIR unplusplus SOURCE_DIR)
-        set(STDC_LIST_FILE "${UNPLUSPLUS_DIR}/cmake/stdc.txt")
-        get_filename_component(clib_name "${cxx_library}" NAME_WE)
-        if (clib_name MATCHES "^lib.*")
-            string(SUBSTRING "${clib_name}" 3 -1 clib_name)
-        endif()
-        set(clib_name "${clib_name}-clib")
-        message("clib name ${clib_name}")
+cmake_minimum_required(VERSION 3.20)
+include_guard(GLOBAL)
 
-        set(excludes_file_name "")
-        foreach (arg ${ARGN})
-            if (lastarg STREQUAL "--excludes-file")
-                set(excludes_file_name "${arg}")
-            endif()
-            set(lastarg "${arg}")
-        endforeach()
-
-        if(excludes_file_name)
-            cmake_path(ABSOLUTE_PATH excludes_file_name NORMALIZE)
-            message("excludes file: ${excludes_file_name}")
-        endif()
-
-        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.h"
-            "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.cpp"
-            "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.json"
-            COMMAND "${UNPLUSPLUS_EXECUTABLE}"
-            -o "${clib_name}" "${header_file}" "--extra-arg-before=-xc++-header"
-            "--cheaders-file" "${STDC_LIST_FILE}" ${ARGN}
-            MAIN_DEPENDENCY "${header_file}"
-            DEPENDS unplusplus "${excludes_file_name}" "${STDC_LIST_FILE}")
-        add_library("${clib_name}" "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.cpp")
-        target_include_directories("${clib_name}" PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
-        target_link_libraries("${clib_name}" "${cxx_library}")
-
-        set(${clib_name}_HEADERS "${CMAKE_CURRENT_BINARY_DIR}" PARENT_SCOPE)
-        set(${clib_name}_JSON "${CMAKE_CURRENT_BINARY_DIR}/${clib_name}.json" PARENT_SCOPE)
-    endfunction()
+if(NOT TARGET unplusplus AND NOT EXISTS "${UNPLUSPLUS_EXECUTABLE}")
+    message(FATAL_ERROR "Could not extrapolate the location of the unplusplus executable.")
 endif()
+
+function(add_unplusplus_clib name)
+    # upp_clib_HEADER cxx_library
+    cmake_parse_arguments(PARSE_ARGV 1 upp_clib
+        "NO_DEPRECATED"
+        "HEADER;LIBRARY;EXCLUDES_FILE"
+        "CXXFLAGS")
+    cmake_path(ABSOLUTE_PATH upp_clib_HEADER NORMALIZE)
+
+    if(NOT DEFINED upp_clib_HEADER)
+        message(FATAL_ERROR "No header supplied for ${name}")
+    endif()
+    if(NOT DEFINED upp_clib_LIBRARY)
+        message(FATAL_ERROR "No library supplied for ${name}")
+    endif()
+
+    message("Building C Wrapper: ${name} for ${upp_clib_LIBRARY}")
+
+    set(upp_args "--extra-arg-before=-xc++-header")
+    if(DEFINED upp_clib_EXCLUDES_FILE)
+        cmake_path(ABSOLUTE_PATH upp_clib_EXCLUDES_FILE NORMALIZE)
+        message("  excludes file: ${upp_clib_EXCLUDES_FILE}")
+        list(APPEND upp_args "--excludes-file")
+        list(APPEND upp_args "${upp_clib_EXCLUDES_FILE}")
+    endif()
+
+    if(upp_clib_NO_DEPRECATED)
+        list(APPEND upp_args "--no-deprecated")
+    endif()
+
+    foreach(arg ${upp_clib_CXXFLAGS})
+        list(APPEND upp_args "--extra-arg-before=${arg}")
+    endforeach()
+
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${name}.h"
+        "${CMAKE_CURRENT_BINARY_DIR}/${name}.cpp"
+        "${CMAKE_CURRENT_BINARY_DIR}/${name}.json"
+        COMMAND "$<IF:$<TARGET_EXISTS:unplusplus>,$<TARGET_FILE:unplusplus>,${UNPLUSPLUS_EXECUTABLE}>"
+        -o "${name}" "${upp_clib_HEADER}" ${upp_args}
+        MAIN_DEPENDENCY "${upp_clib_HEADER}"
+        DEPENDS unplusplus "${upp_clib_EXCLUDES_FILE}")
+    add_library("${name}" "${CMAKE_CURRENT_BINARY_DIR}/${name}.cpp")
+    target_include_directories("${name}" PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
+    target_link_libraries("${name}" "${upp_clib_LIBRARY}")
+
+    set(${name}_HEADERS "${CMAKE_CURRENT_BINARY_DIR}" PARENT_SCOPE)
+    set(${name}_JSON "${CMAKE_CURRENT_BINARY_DIR}/${name}.json" PARENT_SCOPE)
+endfunction()

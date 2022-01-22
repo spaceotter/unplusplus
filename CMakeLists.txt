@@ -63,9 +63,6 @@ set_target_properties(unplusplus PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${APP_BIN_DIR}"
     )
 
-set(UNPLUSPLUS_EXECUTABLE "${APP_BIN_DIR}/unplusplus")
-set(UNPLUSPLUS_EXECUTABLE "${APP_BIN_DIR}/unplusplus" PARENT_SCOPE)
-
 set(BUILD_UNPLUSPLUS_EXAMPLES ON CACHE BOOL "Build the examples for unplusplus")
 if (BUILD_UNPLUSPLUS_EXAMPLES)
     add_subdirectory(examples)
