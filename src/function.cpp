@@ -189,5 +189,5 @@ void FunctionJob::impl() {
     _out.sf() << ";\n}\n\n";
   }
 
-  _out.json()[jcfg()._function][i.cpp] = j;
+  _out.json()[jcfg()._function][_name] = j;
 }
