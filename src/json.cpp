@@ -27,6 +27,11 @@ Json::Value JsonConfig::jsonType(const QualType &QT) {
   v[_typeKind] = T->getTypeClassName();
   if (const auto *ST = dyn_cast<TagType>(T)) {
     v[_typeName] = Identifier(ST->getDecl(), _icfg).cpp;
+    if (T->getTypeClass() == Type::TypeClass::Enum) {
+      v[_builtinFloat] = false;
+      v[_builtinSigned] = ST->isSignedIntegerType();
+      v[_builtinSize] = _ac.getTypeSize(ST);
+    }
   } else if (const auto *ST = dyn_cast<BuiltinType>(T)) {
     v[_builtinFloat] = ST->isFloatingPoint();
     v[_builtinSigned] = ST->isSignedIntegerType() || ST->isFloatingPoint();
