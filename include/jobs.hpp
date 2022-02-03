@@ -8,6 +8,7 @@
 #include <clang/AST/Decl.h>
 #include <clang/Lex/Preprocessor.h>
 #include <clang/Sema/Sema.h>
+#include <clang/AST/Mangle.h>
 
 #include <list>
 #include <memory>
@@ -48,6 +49,7 @@ class JobBase {
   virtual ~JobBase() = default;
   IdentifierConfig &cfg();
   JsonConfig &jcfg();
+  clang::ASTNameGenerator &nameGen();
   JobManager &manager() { return _manager; }
   bool isDone() const { return _done; }
   const std::string &name() const { return _name; }
@@ -110,6 +112,7 @@ class JobManager {
   DeclFilter _filter;
   IdentifierConfig _cfg;
   JsonConfig _jcfg;
+  clang::ASTNameGenerator _ng;
   std::unordered_set<clang::Decl *> _decls;
   std::unordered_set<clang::Decl *> _renamed;
   std::vector<std::unique_ptr<JobBase>> _jobs;
@@ -120,17 +123,19 @@ class JobManager {
   std::queue<clang::Decl *> _lazy;
 
  public:
-  JobManager(Outputs &out, const clang::ASTContext &ASTC, DeclFilterConfig &FC)
+  JobManager(Outputs &out, clang::ASTContext &ASTC, DeclFilterConfig &FC)
       : _out(out),
         _filter(ASTC.getLangOpts(), FC),
         _cfg(ASTC.getLangOpts(), _filter),
-        _jcfg(_cfg, ASTC, out) {}
+        _jcfg(_cfg, ASTC, out),
+        _ng(ASTC) {}
   ~JobManager();
 
   Outputs &out() { return _out; }
   IdentifierConfig &cfg() { return _cfg; }
   DeclFilter &filter() { return _filter; }
   JsonConfig &jcfg() { return _jcfg; }
+  clang::ASTNameGenerator &nameGen() { return _ng; }
   void flush(clang::Sema &S);
 
   // Apply the operator to the declarations nested in the type

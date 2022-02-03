@@ -189,5 +189,7 @@ void FunctionJob::impl() {
     _out.sf() << ";\n}\n\n";
   }
 
+  j["mangled"] = nameGen().getName(_d);
+
   _out.json()[jcfg()._function][_name] = j;
 }

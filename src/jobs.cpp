@@ -23,6 +23,7 @@ JobBase::JobBase(JobManager &manager, clang::Sema &S)
 
 IdentifierConfig &JobBase::cfg() { return _manager.cfg(); }
 JsonConfig &JobBase::jcfg() { return _manager.jcfg(); }
+ASTNameGenerator &JobBase::nameGen() { return _manager.nameGen(); }
 
 void JobBase::depends(JobBase *other) {
   if (other && !other->_done) {
