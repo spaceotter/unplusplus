@@ -9,6 +9,7 @@
 #include <clang/Basic/SourceManager.h>
 
 #include <fstream>
+#include <iostream>
 
 #include "identifier.hpp"
 
@@ -125,12 +126,35 @@ bool unplusplus::traverse(const Decl *D, std::function<bool(const clang::Decl *)
   }
 }
 
+static const SrcMgr::SLocEntry *getSEntry(const clang::Decl *D) {
+  SourceLocation loc = D->getLocation();
+  while (true) {
+    SourceManager &SM = D->getASTContext().getSourceManager();
+    FileID FID = SM.getFileID(SM.getFileLoc(loc));
+    bool Invalid = false;
+    const SrcMgr::SLocEntry *SEntry = &SM.getSLocEntry(FID, &Invalid);
+    if (Invalid) return nullptr;
+    if (SEntry->isFile()) {
+      return SEntry;
+    } else if (SEntry->isExpansion()) {
+      SourceLocation loc2 = SEntry->getExpansion().getExpansionLocStart();
+      if (loc2 != loc) {
+        loc = loc2;
+      } else {
+        return nullptr;
+      }
+    } else {
+      return nullptr;
+    }
+  }
+}
+
 std::string unplusplus::getDeclHeader(const clang::Decl *D) {
-  SourceManager &SM = D->getASTContext().getSourceManager();
-  FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
-  bool Invalid = false;
-  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
-  return SEntry.getFile().getName().str();
+  auto *SEntry = getSEntry(D);
+  if (SEntry)
+    return SEntry->getFile().getName().str();
+  else
+    throw std::runtime_error("Can't find source entry");
 }
 
 DeclFilter::DeclFilter(const clang::LangOptions &LO, DeclFilterConfig &FC) : _conf(FC), _pp(LO) {
@@ -145,6 +169,7 @@ DeclFilter::DeclFilter(const clang::LangOptions &LO, DeclFilterConfig &FC) : _co
   for (auto &d : _conf.exclude_decls) {
     _excluded.emplace(d);
   }
+  _excluded.emplace("__va_list_tag");
 
   for (const auto &h : C_STD_HEADERS) {
     _headerPatterns.push_back(h);
@@ -210,16 +235,18 @@ bool DeclFilter::isCHeader(const clang::Decl *D) {
   if (_cheaderd.count(D)) {
     return _cheaderd.at(D);
   }
-  SourceManager &SM = D->getASTContext().getSourceManager();
-  FileID FID = SM.getFileID(SM.getFileLoc(D->getLocation()));
-  bool Invalid = false;
-  const SrcMgr::SLocEntry &SEntry = SM.getSLocEntry(FID, &Invalid);
-  std::string header = SEntry.getFile().getName().str();
+  std::string qname = getCXXQualifiedName(_pp, D);
+
+  auto *SEntry = getSEntry(D);
+  if (!SEntry)
+    return false;
+
+  std::string header = SEntry->getFile().getName().str();
   if (_cheader.count(header)) {
     _cheaderd[D] = _cheader.at(header);
     return _cheader.at(header);
   }
-  SrcMgr::CharacteristicKind ck = SEntry.getFile().getFileCharacteristic();
+  SrcMgr::CharacteristicKind ck = SEntry->getFile().getFileCharacteristic();
   if (ck == SrcMgr::CharacteristicKind::C_ExternCSystem) {
     _cheaderd[D] = true;
     _cheader[header] = true;
