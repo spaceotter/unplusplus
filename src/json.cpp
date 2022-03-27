@@ -31,11 +31,13 @@ Json::Value JsonConfig::jsonType(const QualType &QT) {
       v[_builtinFloat] = false;
       v[_builtinSigned] = ST->isSignedIntegerType();
       v[_builtinSize] = _ac.getTypeSize(ST);
+      v[_builtinChar] = ST->isCharType();
     }
   } else if (const auto *ST = dyn_cast<BuiltinType>(T)) {
     v[_builtinFloat] = ST->isFloatingPoint();
     v[_builtinSigned] = ST->isSignedIntegerType() || ST->isFloatingPoint();
     v[_builtinSize] = _ac.getTypeSize(ST);
+    v[_builtinChar] = ST->isCharType();
   } else if (const auto *ST = dyn_cast<PointerType>(T)) {
     v[_pointee] = jsonType(ST->getPointeeType());
   } else if (const auto *ST = dyn_cast<ConstantArrayType>(T)) {

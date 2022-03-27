@@ -27,6 +27,7 @@ struct JsonConfig {
   const std::string _builtinFloat = "float";
   const std::string _builtinSize = "bits";
   const std::string _builtinSigned = "signed";
+  const std::string _builtinChar = "char";
   const std::string _pointee = "pointee";
   const std::string _element = "element";
   const std::string _return = "return";
