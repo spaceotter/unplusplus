@@ -46,6 +46,7 @@ function(add_unplusplus_clib name)
         DEPENDS unplusplus "${upp_clib_EXCLUDES_FILE}")
     add_library("${name}" "${CMAKE_CURRENT_BINARY_DIR}/${name}.cpp")
     target_include_directories("${name}" PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_options("${name}" PUBLIC "${upp_clib_CXXFLAGS}")
     target_link_libraries("${name}" "${upp_clib_LIBRARY}")
 
     set(${name}_HEADERS "${CMAKE_CURRENT_BINARY_DIR}" PARENT_SCOPE)
